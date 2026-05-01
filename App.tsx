@@ -1,24 +1,28 @@
 /**
- * Sample React Native App
- * https://github.com/facebook/react-native
+ * Connexaara - Connect. Learn. Grow. Together.
  *
  * @format
  */
 
+import React, { useState } from 'react';
 import { NewAppScreen } from '@react-native/new-app-screen';
 import { StatusBar, StyleSheet, useColorScheme, View } from 'react-native';
 import {
   SafeAreaProvider,
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
+import { AppNavigator } from './src/navigation/AppNavigator';
+import { ToastProvider } from './src/components/ToastContext';
 
 function App() {
   const isDarkMode = useColorScheme() === 'dark';
 
   return (
     <SafeAreaProvider>
-      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-      <AppContent />
+      <ToastProvider>
+        <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
+        <AppNavigator />
+      </ToastProvider>
     </SafeAreaProvider>
   );
 }
