@@ -5,12 +5,14 @@ import SplashScreen from '../screens/SplashScreen';
 import GetStartedScreen from '../screens/GetStartedScreen';
 import LoginScreen from '../screens/LoginScreen';
 import HODDashboardNavigator from './HODDashboardNavigator';
+import TutorDashboardNavigator from './TutorDashboardNavigator';
 
 export type RootStackParamList = {
   Splash: undefined;
   GetStarted: undefined;
   Login: undefined;
   HODDashboard: undefined;
+  TutorDashboard: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -28,6 +30,7 @@ export const AppNavigator = () => {
         <Stack.Screen name="GetStarted" component={GetStartedScreen} />
         <Stack.Screen name="Login" component={LoginScreen} />
         <Stack.Screen name="HODDashboard" component={HODDashboardNavigator} />
+        <Stack.Screen name="TutorDashboard" component={TutorDashboardNavigator} />
       </Stack.Navigator>
     </NavigationContainer>
   );

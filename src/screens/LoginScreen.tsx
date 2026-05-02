@@ -61,7 +61,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
     // Simulate API call for login
     setTimeout(() => {
       setIsLoading(false);
-      navigation.navigate('HODDashboard');
+      navigation.navigate('TutorDashboard');
     }, 2500);
   };
 
