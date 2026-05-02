@@ -40,6 +40,7 @@ interface Batch {
   name: string;
   startYear: string;
   endYear: string;
+  currentSemester?: string;
   tutorId: string;
   tutorName: string;
 }
@@ -52,8 +53,8 @@ const MOCK_STAFF: Staff[] = [
 ];
 
 const INITIAL_BATCHES: Batch[] = [
-  { id: '1', name: 'BTech CS', startYear: '2024', endYear: '2028', tutorId: '1', tutorName: 'John Doe' },
-  { id: '2', name: 'BTech IT', startYear: '2023', endYear: '2027', tutorId: '2', tutorName: 'Jane Smith' },
+  { id: '1', name: 'BTech CS', startYear: '2024', endYear: '2028', currentSemester: '1', tutorId: '1', tutorName: 'John Doe' },
+  { id: '2', name: 'BTech IT', startYear: '2023', endYear: '2027', currentSemester: '3', tutorId: '2', tutorName: 'Jane Smith' },
 ];
 
 const HODBatchesScreen = () => {
@@ -67,6 +68,7 @@ const HODBatchesScreen = () => {
   const [newName, setNewName] = useState('');
   const [newStartYear, setNewStartYear] = useState('');
   const [newEndYear, setNewEndYear] = useState('');
+  const [newSemester, setNewSemester] = useState('');
   const [selectedTutorId, setSelectedTutorId] = useState<string>('');
 
   // Manual Keyboard Tracking for Android Modal Bug
@@ -87,7 +89,7 @@ const HODBatchesScreen = () => {
   }, []);
 
   const handleAddBatch = () => {
-    if (!newName.trim() || !newStartYear.trim() || !newEndYear.trim() || !selectedTutorId) return;
+    if (!newName.trim() || !newStartYear.trim() || !newEndYear.trim() || !newSemester.trim() || !selectedTutorId) return;
 
     const tutor = MOCK_STAFF.find(s => s.id === selectedTutorId);
 
@@ -96,6 +98,7 @@ const HODBatchesScreen = () => {
       name: newName,
       startYear: newStartYear,
       endYear: newEndYear,
+      currentSemester: newSemester,
       tutorId: selectedTutorId,
       tutorName: tutor?.name || 'Unknown',
     };
@@ -106,6 +109,7 @@ const HODBatchesScreen = () => {
     setNewName('');
     setNewStartYear('');
     setNewEndYear('');
+    setNewSemester('');
     setSelectedTutorId('');
     setModalVisible(false);
 
@@ -120,7 +124,7 @@ const HODBatchesScreen = () => {
         </View>
         <View style={styles.details}>
           <Text style={styles.batchName}>{item.name}</Text>
-          <Text style={styles.batchSub}>{item.startYear} - {item.endYear}  •  Tutor: {item.tutorName}</Text>
+          <Text style={styles.batchSub}>{item.startYear} - {item.endYear}  •  Sem {item.currentSemester || '?'}  •  Tutor: {item.tutorName}</Text>
         </View>
       </View>
       <TouchableOpacity style={styles.viewButton} activeOpacity={0.7}>
@@ -182,8 +186,9 @@ const HODBatchesScreen = () => {
                   </TouchableOpacity>
                 </View>
 
-                <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>Batch Name</Text>
+                <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.inputLabel}>Batch Name</Text>
                   <TextInput
                     style={styles.modalInput}
                     placeholder="e.g. BTech Computer Science"
@@ -220,6 +225,18 @@ const HODBatchesScreen = () => {
                   </View>
                 </View>
 
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>Current Semester</Text>
+                  <TextInput
+                    style={styles.modalInput}
+                    placeholder="e.g. 1"
+                    placeholderTextColor={COLORS.textSecondary}
+                    keyboardType="numeric"
+                    value={newSemester}
+                    onChangeText={setNewSemester}
+                  />
+                </View>
+
                 {/* Custom Tutor Dropdown / Chip Selector */}
                 <View style={styles.inputGroup}>
                   <Text style={styles.inputLabel}>Assign Class Tutor</Text>
@@ -249,8 +266,9 @@ const HODBatchesScreen = () => {
                         </TouchableOpacity>
                       );
                     })}
-                  </ScrollView>
-                </View>
+                    </ScrollView>
+                  </View>
+                </ScrollView>
 
                 <View style={styles.modalActions}>
                   <TouchableOpacity
@@ -259,16 +277,16 @@ const HODBatchesScreen = () => {
                   >
                     <Text style={styles.cancelBtnText}>Cancel</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[
-                      styles.saveBtn,
-                      (!newName.trim() || !newStartYear.trim() || !newEndYear.trim() || !selectedTutorId) && styles.saveBtnDisabled
-                    ]}
-                    onPress={handleAddBatch}
-                    disabled={!newName.trim() || !newStartYear.trim() || !newEndYear.trim() || !selectedTutorId}
-                  >
-                    <Text style={styles.saveBtnText}>Save Batch</Text>
-                  </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[
+                        styles.saveBtn,
+                        (!newName.trim() || !newStartYear.trim() || !newEndYear.trim() || !newSemester.trim() || !selectedTutorId) && styles.saveBtnDisabled
+                      ]}
+                      onPress={handleAddBatch}
+                      disabled={!newName.trim() || !newStartYear.trim() || !newEndYear.trim() || !newSemester.trim() || !selectedTutorId}
+                    >
+                      <Text style={styles.saveBtnText}>Save Batch</Text>
+                    </TouchableOpacity>
                 </View>
               </View>
             </TouchableWithoutFeedback>

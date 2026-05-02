@@ -63,7 +63,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
       setIsLoading(false);
       navigation.reset({
         index: 0,
-        routes: [{ name: 'StudentDashboard' }],
+        routes: [{ name: 'HODDashboard' }],
       });
     }, 2500);
   };
