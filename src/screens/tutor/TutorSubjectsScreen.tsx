@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -7,306 +7,585 @@ import {
   TouchableOpacity,
   FlatList,
   Modal,
+  StatusBar,
+  ActivityIndicator,
+  RefreshControl,
+  ScrollView,
+  Pressable,
+  TouchableWithoutFeedback,
   KeyboardAvoidingView,
   Platform,
-  StatusBar,
-  TouchableWithoutFeedback,
   Keyboard,
-  ScrollView,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useToast } from '../../components/ToastContext';
+import {
+  getSubjects,
+  getSubjectById,
+  createSubject,
+  assignSubject,
+  getStaff,
+  SubjectListItem,
+  SubjectDetail,
+  StaffMember,
+  ApiError,
+} from '../../services/api';
+import { getAuthData } from '../../services/storage';
+import SearchIcon from '../../assets/svg/search.svg';
 import ViewIcon from '../../assets/svg/view.svg';
+import NotFoundIcon from '../../assets/svg/not-found.svg';
 
 const COLORS = {
-  background: '#F5F7FA',
+  background: '#F0F2F8',
   white: '#FFFFFF',
-  textPrimary: '#1B2A4A',
-  textSecondary: '#7A869A',
-  primary: '#2EC4B6',
-  purple: '#6C5CE7',
-  purpleLight: '#F0EFFF',
-  orange: '#FF9F43',
-  orangeLight: '#FFF0E1',
-  border: '#E2E8F0',
-  inputBg: '#F8FAFC',
+  textPrimary: '#1A1F36',
+  textSecondary: '#8A94A6',
+  textTertiary: '#C4C9D4',
+  primary: '#6C63FF',
+  primaryLight: '#EEF0FF',
+  border: '#E8EBF0',
+  inputBg: '#F7F8FC',
+  cardBg: '#FFFFFF',
+  shadow: '#A0A3B1',
 };
 
-// --- Models & Mock Data ---
-
-interface Subject {
-  id: string;
-  name: string;
-  code: string;
-  semester: string;
-}
-
-interface PeriodEntry {
-  id: string;
-  day: string;
-  startTime: string;
-  endTime: string;
-  type: 'Subject' | 'Break' | 'Lunch';
-  subjectId?: string;
-  staffId?: string;
-}
-
-interface Timetable {
-  id: string;
-  semester: string;
-  entries: PeriodEntry[];
-}
-
-const MOCK_STAFF = [
-  { id: 's1', name: 'John Doe' },
-  { id: 's2', name: 'Sarah Smith' },
-  { id: 's3', name: 'Mike Ross' },
+const AVATAR_PALETTE = [
+  { bg: '#EEF0FF', text: '#6C63FF' },
+  { bg: '#FFF0F6', text: '#F472B6' },
+  { bg: '#ECFDF5', text: '#10B981' },
+  { bg: '#FFF7ED', text: '#F97316' },
+  { bg: '#EFF6FF', text: '#3B82F6' },
+  { bg: '#FDF4FF', text: '#A855F7' },
 ];
 
-const INITIAL_SUBJECTS: Subject[] = [
-  { id: 'sub1', name: 'Data Structures', code: 'CS301', semester: '3' },
-  { id: 'sub2', name: 'Operating Systems', code: 'CS302', semester: '3' },
-  { id: 'sub3', name: 'Machine Learning', code: 'CS501', semester: '5' },
-];
+const getAvatarColor = (name: string) =>
+  AVATAR_PALETTE[name.charCodeAt(0) % AVATAR_PALETTE.length];
 
-const INITIAL_TIMETABLES: Timetable[] = [
-  {
-    id: 'tt1',
-    semester: '3',
-    entries: [
-      { id: 'p1', day: 'Monday', startTime: '09:00 AM', endTime: '10:00 AM', type: 'Subject', subjectId: 'sub1', staffId: 's1' },
-    ],
-  },
-];
+const PAGE_LIMIT = 10;
 
-const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-const PERIOD_TYPES = ['Subject', 'Break', 'Lunch'];
-
-// --- Main Component ---
+const ordinalSuffix = (n: number) => {
+  const s = ['th', 'st', 'nd', 'rd'];
+  const v = n % 100;
+  return n + (s[(v - 20) % 10] || s[v] || s[0]);
+};
 
 const TutorSubjectsScreen = () => {
   const insets = useSafeAreaInsets();
   const { showToast } = useToast();
 
-  const [activeTab, setActiveTab] = useState<'Subjects' | 'TimeTable'>('Subjects');
+  const [currentSemester, setCurrentSemester] = useState<number | null>(null);
+  const [subjectList, setSubjectList] = useState<SubjectListItem[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isListLoading, setIsListLoading] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const [isTyping, setIsTyping] = useState(false);
+  const [activeTab, setActiveTab] = useState<'current' | 'previous'>('current');
 
-  // Lists State
-  const [subjectsList, setSubjectsList] = useState<Subject[]>(INITIAL_SUBJECTS);
-  const [timetablesList, setTimetablesList] = useState<Timetable[]>(INITIAL_TIMETABLES);
+  // Detail modal
+  const [detailVisible, setDetailVisible] = useState(false);
+  const [selectedSubject, setSelectedSubject] = useState<SubjectDetail | null>(null);
+  const [isDetailLoading, setIsDetailLoading] = useState(false);
 
-  // Modals Visibility
-  const [subjectModalVisible, setSubjectModalVisible] = useState(false);
-  const [timetableModalVisible, setTimetableModalVisible] = useState(false);
-  const [viewTimetableModalVisible, setViewTimetableModalVisible] = useState(false);
-  const [selectedTimetable, setSelectedTimetable] = useState<Timetable | null>(null);
-
-  // Keyboard Padding (Android Fix)
-  const [keyboardPadding, setKeyboardPadding] = useState(0);
-
-  useEffect(() => {
-    if (Platform.OS === 'ios') return;
-    const showSub = Keyboard.addListener('keyboardDidShow', (e) => setKeyboardPadding(e.endCoordinates.height));
-    const hideSub = Keyboard.addListener('keyboardDidHide', () => setKeyboardPadding(0));
-    return () => { showSub.remove(); hideSub.remove(); };
-  }, []);
-
-  // --- Subject Form State ---
+  // Create modal
+  const [createVisible, setCreateVisible] = useState(false);
   const [newSubName, setNewSubName] = useState('');
   const [newSubCode, setNewSubCode] = useState('');
-  const [newSubSem, setNewSubSem] = useState('');
+  const [newSubSemester, setNewSubSemester] = useState('');
+  const [isCreating, setIsCreating] = useState(false);
+  const [departmentId, setDepartmentId] = useState<string | null>(null);
+  const [batchId, setBatchId] = useState<string | null>(null);
+  const [batchName, setBatchName] = useState<string | null>(null);
 
-  const handleAddSubject = () => {
-    if (!newSubName.trim() || !newSubCode.trim() || !newSubSem.trim()) return;
-    const newSub: Subject = {
-      id: Math.random().toString(),
-      name: newSubName,
-      code: newSubCode,
-      semester: newSubSem,
-    };
-    setSubjectsList([newSub, ...subjectsList]);
-    setNewSubName(''); setNewSubCode(''); setNewSubSem('');
-    setSubjectModalVisible(false);
-    showToast('Subject added successfully!', 'success');
-  };
+  // Assign teacher
+  const [assignVisible, setAssignVisible] = useState(false);
+  const [staffList, setStaffList] = useState<StaffMember[]>([]);
+  const [isLoadingStaff, setIsLoadingStaff] = useState(false);
+  const [isAssigning, setIsAssigning] = useState(false);
 
-  // --- Timetable Form State ---
-  const [ttSem, setTtSem] = useState('');
-  const [ttEntries, setTtEntries] = useState<PeriodEntry[]>([
-    { id: Math.random().toString(), day: 'Monday', startTime: '', endTime: '', type: 'Subject' }
-  ]);
+  const [keyboardPadding, setKeyboardPadding] = useState(0);
 
-  const addPeriodCard = () => {
-    setTtEntries([
-      ...ttEntries,
-      { id: Math.random().toString(), day: 'Monday', startTime: '', endTime: '', type: 'Subject' }
-    ]);
-  };
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchInputRef = useRef<TextInput>(null);
 
-  const removePeriodCard = (id: string) => {
-    if (ttEntries.length === 1) return; // Keep at least one
-    setTtEntries(ttEntries.filter(e => e.id !== id));
-  };
+  // ── Keyboard tracking ──────────────────────────────────────────────────────
+  useEffect(() => {
+    if (Platform.OS === 'ios') return;
+    const show = Keyboard.addListener('keyboardDidShow', e => setKeyboardPadding(e.endCoordinates.height));
+    const hide = Keyboard.addListener('keyboardDidHide', () => setKeyboardPadding(0));
+    return () => { show.remove(); hide.remove(); };
+  }, []);
 
-  const updateEntry = (id: string, field: keyof PeriodEntry, value: string) => {
-    setTtEntries(ttEntries.map(e => e.id === id ? { ...e, [field]: value } : e));
-  };
+  // ── Load currentSemester from storage ──────────────────────────────────────
+  useEffect(() => {
+    getAuthData().then(auth => {
+      if (auth?.currentSemester) {
+        setCurrentSemester(auth.currentSemester);
+      }
+      if (auth?.departmentId) {
+        setDepartmentId(auth.departmentId);
+      }
+      if (auth?.batchId) {
+        setBatchId(auth.batchId);
+      }
+      if (auth?.batchName) {
+        setBatchName(auth.batchName);
+      }
+    });
+  }, []);
 
-  const handleAddTimetable = () => {
-    if (!ttSem.trim() || ttEntries.length === 0) {
-      showToast('Please provide a Semester and at least one period.', 'error');
-      return;
+  // ── Fetch ────────────────────────────────────────────────────────────────────
+  const fetchSubjects = useCallback(async (
+    semester: number | undefined,
+    page: number,
+    search: string,
+    reset = false,
+    silent = false,
+  ) => {
+    if (!silent) setIsListLoading(true);
+    try {
+      const res = await getSubjects(page, PAGE_LIMIT, search, semester);
+      setSubjectList(prev => reset ? res.data : [...prev, ...res.data]);
+      setTotalCount(res.meta.total);
+      setCurrentPage(page);
+    } catch (err) {
+      showToast(err instanceof ApiError ? err.message : 'Failed to load subjects.', 'error');
+    } finally {
+      setIsListLoading(false);
+      setIsRefreshing(false);
     }
-    
-    // Check if sem exists, update it, or add new
-    const existingIndex = timetablesList.findIndex(t => t.semester === ttSem);
-    if (existingIndex >= 0) {
-      const updatedList = [...timetablesList];
-      updatedList[existingIndex].entries = [...updatedList[existingIndex].entries, ...ttEntries];
-      setTimetablesList(updatedList);
-    } else {
-      const newTT: Timetable = {
-        id: Math.random().toString(),
-        semester: ttSem,
-        entries: ttEntries,
-      };
-      setTimetablesList([newTT, ...timetablesList]);
-    }
+  }, []);
 
-    setTtSem('');
-    setTtEntries([{ id: Math.random().toString(), day: 'Monday', startTime: '', endTime: '', type: 'Subject' }]);
-    setTimetableModalVisible(false);
-    showToast('Time Table saved successfully!', 'success');
+  // Compute semester filter for current tab
+  const getSemesterFilter = useCallback((tab: 'current' | 'previous') => {
+    if (!currentSemester) return undefined;
+    return tab === 'current' ? currentSemester : undefined;
+  }, [currentSemester]);
+
+  useEffect(() => {
+    if (currentSemester === null) return;
+    const sem = getSemesterFilter(activeTab);
+    fetchSubjects(sem, 1, '', true);
+  }, [currentSemester, activeTab]);
+
+  const handleRefresh = () => {
+    setIsRefreshing(true);
+    setSearchQuery('');
+    searchInputRef.current?.blur();
+    const sem = getSemesterFilter(activeTab);
+    fetchSubjects(sem, 1, '', true, true);
   };
 
-  // --- Renderers ---
+  const handleSearchChange = (text: string) => {
+    setSearchQuery(text);
+    setIsTyping(!!text.trim());
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => {
+      setIsTyping(false);
+      const sem = getSemesterFilter(activeTab);
+      fetchSubjects(sem, 1, text, true);
+    }, 500);
+  };
 
-  const renderSubjectItem = ({ item }: { item: Subject }) => (
-    <View style={styles.cardContainer}>
-      <View style={styles.cardInfo}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{item.name.charAt(0).toUpperCase()}</Text>
+  const handleLoadMore = () => {
+    const hasMore = subjectList.length < totalCount;
+    if (!isListLoading && hasMore) {
+      const sem = getSemesterFilter(activeTab);
+      fetchSubjects(sem, currentPage + 1, searchQuery, false);
+    }
+  };
+
+  // ── View Subject ─────────────────────────────────────────────────────────────
+  const handleViewSubject = async (id: string) => {
+    setDetailVisible(true);
+    setIsDetailLoading(true);
+    setSelectedSubject(null);
+    try {
+      const detail = await getSubjectById(id);
+      setSelectedSubject(detail);
+    } catch (err) {
+      showToast(err instanceof ApiError ? err.message : 'Failed to load subject details.', 'error');
+      setDetailVisible(false);
+    } finally {
+      setIsDetailLoading(false);
+    }
+  };
+
+  // ── Create Subject ──────────────────────────────────────────────────────────
+  const openCreateModal = () => {
+    setNewSubName(''); setNewSubCode(''); setNewSubSemester('');
+    setCreateVisible(true);
+  };
+
+  const isCreateFormValid = !!newSubName.trim() && !!newSubCode.trim() && !!newSubSemester.trim() && !!departmentId;
+
+  const handleCreateSubject = async () => {
+    if (!isCreateFormValid) return;
+    Keyboard.dismiss();
+    setIsCreating(true);
+    try {
+      await createSubject({
+        name: newSubName.trim(),
+        subjectCode: newSubCode.trim(),
+        departmentId: departmentId!,
+        semester: parseInt(newSubSemester.trim(), 10),
+      });
+      setCreateVisible(false);
+      showToast('Subject added successfully!', 'success');
+      const sem = getSemesterFilter(activeTab);
+      fetchSubjects(sem, 1, searchQuery, true);
+    } catch (err) {
+      showToast(err instanceof ApiError ? err.message : 'Failed to add subject.', 'error');
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  // ── Assign Teacher ─────────────────────────────────────────────────────────
+  const openAssignModal = async () => {
+    setAssignVisible(true);
+    setIsLoadingStaff(true);
+    try {
+      const res = await getStaff(1, 100, '', true);
+      setStaffList(res.data);
+    } catch (err) {
+      showToast(err instanceof ApiError ? err.message : 'Failed to load staff.', 'error');
+    } finally {
+      setIsLoadingStaff(false);
+    }
+  };
+
+  const handleAssignTeacher = async (staffId: string) => {
+    if (!selectedSubject || !batchId) return;
+    setIsAssigning(true);
+    try {
+      await assignSubject({
+        subjectId: selectedSubject.id,
+        batchId,
+        staffId,
+      });
+      showToast('Teacher assigned successfully!', 'success');
+      setAssignVisible(false);
+      // Refresh the detail
+      const detail = await getSubjectById(selectedSubject.id);
+      setSelectedSubject(detail);
+    } catch (err) {
+      showToast(err instanceof ApiError ? err.message : 'Failed to assign teacher.', 'error');
+    } finally {
+      setIsAssigning(false);
+    }
+  };
+
+  // ── Filter previous semesters (exclude current) ─────────────────────────────
+  const filteredList = activeTab === 'previous' && currentSemester
+    ? subjectList.filter(s => s.semester < currentSemester)
+    : subjectList;
+
+  // ── Card ─────────────────────────────────────────────────────────────────────
+  const renderItem = ({ item, index }: { item: SubjectListItem; index: number }) => {
+    const color = getAvatarColor(item.name);
+    const initials = item.name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
+
+    return (
+      <View style={[styles.card, index === 0 && { marginTop: 4 }]}>
+        <View style={[styles.cardAvatar, { backgroundColor: color.bg }]}>
+          <Text style={[styles.cardAvatarText, { color: color.text }]}>{initials}</Text>
         </View>
-        <View style={styles.details}>
-          <Text style={styles.cardTitle}>{item.name}</Text>
-          <Text style={styles.cardSub}>Code: {item.code} • Sem: {item.semester}</Text>
+        <View style={styles.cardBody}>
+          <Text style={styles.cardName} numberOfLines={1}>{item.name}</Text>
+          <Text style={styles.cardSub}>{item.subjectCode} • {ordinalSuffix(item.semester)} Sem</Text>
         </View>
+        <TouchableOpacity
+          style={styles.viewBtn}
+          activeOpacity={0.7}
+          onPress={() => handleViewSubject(item.id)}
+        >
+          <ViewIcon width={18} height={18} color={COLORS.primary} />
+        </TouchableOpacity>
       </View>
-    </View>
-  );
+    );
+  };
 
-  const renderTimetableItem = ({ item }: { item: Timetable }) => (
-    <View style={styles.cardContainer}>
-      <View style={styles.cardInfo}>
-        <View style={[styles.avatar, { backgroundColor: COLORS.orangeLight }]}>
-          <Text style={[styles.avatarText, { color: COLORS.orange }]}>S{item.semester}</Text>
-        </View>
-        <View style={styles.details}>
-          <Text style={styles.cardTitle}>Semester {item.semester}</Text>
-          <Text style={styles.cardSub}>{item.entries.length} Periods Scheduled</Text>
-        </View>
-      </View>
-      <TouchableOpacity 
-        style={styles.viewButton} 
-        activeOpacity={0.7}
-        onPress={() => {
-          setSelectedTimetable(item);
-          setViewTimetableModalVisible(true);
-        }}
-      >
-        <ViewIcon width={20} height={20} color={COLORS.orange} />
-      </TouchableOpacity>
-    </View>
-  );
+  const hasMore = filteredList.length < totalCount;
 
+  // ── Render ───────────────────────────────────────────────────────────────────
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
 
       {/* Header */}
       <View style={[styles.header, { paddingTop: Math.max(insets.top, 16) + 10 }]}>
-        <Text style={styles.headerTitle}>Curriculum</Text>
-        {activeTab === 'Subjects' ? (
-          <TouchableOpacity style={styles.addButton} onPress={() => setSubjectModalVisible(true)}>
-            <Text style={styles.addButtonText}>+ Add Subject</Text>
-          </TouchableOpacity>
-        ) : (
-          <TouchableOpacity style={styles.addButton} onPress={() => setTimetableModalVisible(true)}>
-            <Text style={styles.addButtonText}>+ Add Schedule</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-
-      {/* Top Tabs */}
-      <View style={styles.tabsContainer}>
-        <TouchableOpacity 
-          style={[styles.tabBtn, activeTab === 'Subjects' && styles.tabBtnActive]}
-          onPress={() => setActiveTab('Subjects')}
-        >
-          <Text style={[styles.tabText, activeTab === 'Subjects' && styles.tabTextActive]}>Subjects</Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={[styles.tabBtn, activeTab === 'TimeTable' && styles.tabBtnActive]}
-          onPress={() => setActiveTab('TimeTable')}
-        >
-          <Text style={[styles.tabText, activeTab === 'TimeTable' && styles.tabTextActive]}>Time Table</Text>
+        <View>
+          <Text style={styles.headerTitle}>Subjects</Text>
+          <Text style={styles.headerSub}>{totalCount} total</Text>
+        </View>
+        <TouchableOpacity style={styles.addButton} activeOpacity={0.85} onPress={openCreateModal}>
+          <Text style={styles.addButtonText}>+ Add</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Dynamic List */}
-      <FlatList
-        data={(activeTab === 'Subjects' ? subjectsList : timetablesList) as any[]}
-        keyExtractor={item => item.id}
-        renderItem={activeTab === 'Subjects' ? renderSubjectItem : renderTimetableItem as any}
-        contentContainerStyle={styles.listContent}
-        showsVerticalScrollIndicator={false}
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>No data found.</Text>
-          </View>
-        }
-      />
+      {/* Search Bar */}
+      <View style={styles.searchWrap}>
+        <View style={[styles.searchBar, isSearchFocused && styles.searchBarFocused]}>
+          <SearchIcon width={18} height={18} color={isSearchFocused ? COLORS.primary : COLORS.textSecondary} />
+          <TextInput
+            ref={searchInputRef}
+            style={styles.searchInput}
+            placeholder="Search by name or code..."
+            placeholderTextColor={COLORS.textTertiary}
+            value={searchQuery}
+            onChangeText={handleSearchChange}
+            onFocus={() => setIsSearchFocused(true)}
+            onBlur={() => setIsSearchFocused(false)}
+            returnKeyType="search"
+            blurOnSubmit
+          />
+          {searchQuery.length > 0 && (
+            <Pressable onPress={() => {
+              setSearchQuery('');
+              const sem = getSemesterFilter(activeTab);
+              fetchSubjects(sem, 1, '', true);
+              searchInputRef.current?.blur();
+            }}>
+              <Text style={styles.clearText}>✕</Text>
+            </Pressable>
+          )}
+        </View>
+      </View>
 
-      {/* ========================================================= */}
-      {/* ADD SUBJECT MODAL */}
-      {/* ========================================================= */}
+      {/* Tabs */}
+      <View style={styles.tabRow}>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'current' && styles.tabActive]}
+          onPress={() => { if (activeTab !== 'current') { setSearchQuery(''); setActiveTab('current'); } }}
+          activeOpacity={0.8}
+        >
+          <View style={[styles.tabDot, { backgroundColor: activeTab === 'current' ? '#6C63FF' : COLORS.textTertiary }]} />
+          <Text style={[styles.tabText, activeTab === 'current' && styles.tabTextActive]}>
+            {currentSemester ? `${ordinalSuffix(currentSemester)} Sem` : 'Current'}
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'previous' && styles.tabPrevious]}
+          onPress={() => { if (activeTab !== 'previous') { setSearchQuery(''); setActiveTab('previous'); } }}
+          activeOpacity={0.8}
+        >
+          <View style={[styles.tabDot, { backgroundColor: activeTab === 'previous' ? '#F97316' : COLORS.textTertiary }]} />
+          <Text style={[styles.tabText, activeTab === 'previous' && styles.tabTextPrevious]}>Previous</Text>
+        </TouchableOpacity>
+      </View>
+
+      {isTyping && (
+        <Text style={styles.searchingText}>Searching for "{searchQuery}"…</Text>
+      )}
+
+      {/* List */}
+      {isListLoading && subjectList.length === 0 ? (
+        <View style={styles.loaderWrap}>
+          <ActivityIndicator color={COLORS.primary} size="large" />
+          <Text style={styles.loadingText}>Loading subjects…</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={filteredList}
+          keyExtractor={item => item.id}
+          renderItem={renderItem}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={handleRefresh}
+              colors={[COLORS.primary]}
+              tintColor={COLORS.primary}
+            />
+          }
+          onEndReached={handleLoadMore}
+          onEndReachedThreshold={0.3}
+          ListFooterComponent={
+            isListLoading && subjectList.length > 0
+              ? <ActivityIndicator color={COLORS.primary} style={{ marginVertical: 16 }} />
+              : hasMore ? null
+              : filteredList.length > 0
+              ? <Text style={styles.endText}>All subjects loaded</Text>
+              : null
+          }
+          ListEmptyComponent={
+            <View style={styles.emptyWrap}>
+              <NotFoundIcon width={90} height={90} />
+              <Text style={styles.emptyTitle}>No Subjects Found</Text>
+              <Text style={styles.emptySubtitle}>
+                {searchQuery
+                  ? `No subjects matching "${searchQuery}"`
+                  : activeTab === 'current'
+                    ? 'Current semester subjects will appear here'
+                    : 'Previous semester subjects will appear here'}
+              </Text>
+            </View>
+          }
+        />
+      )}
+
+      {/* ── Subject Detail Modal ── */}
       <Modal
-        visible={subjectModalVisible}
-        transparent={true}
+        visible={detailVisible}
+        transparent
         animationType="slide"
-        statusBarTranslucent={true}
+        statusBarTranslucent
+        onRequestClose={() => setDetailVisible(false)}
       >
-        <TouchableWithoutFeedback onPress={() => { Keyboard.dismiss(); setSubjectModalVisible(false); }}>
-          <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <TouchableWithoutFeedback onPress={() => setDetailVisible(false)}>
+          <View style={styles.detailOverlay}>
             <TouchableWithoutFeedback>
-              <View style={[styles.modalContent, { paddingBottom: Math.max(insets.bottom, 24) + keyboardPadding }]}>
-                <View style={styles.modalHeader}>
+              <View style={[styles.detailSheet, { paddingBottom: Math.max(insets.bottom, 24) }]}>
+                <View style={styles.modalHandle} />
+
+                {isDetailLoading ? (
+                  <View style={styles.detailLoader}>
+                    <ActivityIndicator color={COLORS.primary} size="large" />
+                    <Text style={styles.loadingText}>Loading…</Text>
+                  </View>
+                ) : selectedSubject ? (
+                  <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 16 }}>
+                    {/* Header row */}
+                    <View style={styles.modalHeaderRow}>
+                      <Text style={styles.modalTitle}>Subject Details</Text>
+                      <TouchableOpacity style={styles.modalCloseBtn} onPress={() => setDetailVisible(false)}>
+                        <Text style={styles.modalCloseTxt}>✕</Text>
+                      </TouchableOpacity>
+                    </View>
+
+                    {/* Avatar */}
+                    {(() => {
+                      const c = getAvatarColor(selectedSubject.name);
+                      const ini = selectedSubject.name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
+                      return (
+                        <View style={styles.detailAvatarWrap}>
+                          <View style={[styles.detailAvatar, { backgroundColor: c.bg }]}>
+                            <Text style={[styles.detailAvatarText, { color: c.text }]}>{ini}</Text>
+                          </View>
+                        </View>
+                      );
+                    })()}
+
+                    <Text style={styles.detailName}>{selectedSubject.name}</Text>
+                    <Text style={styles.detailSub}>{selectedSubject.subjectCode}</Text>
+
+                    {/* Info card */}
+                    <View style={styles.infoCard}>
+                      <View style={styles.infoRow}>
+                        <Text style={styles.infoLabel}>Semester</Text>
+                        <Text style={styles.infoValue}>{ordinalSuffix(selectedSubject.semester)}</Text>
+                      </View>
+                      <View style={styles.infoRowDivider} />
+                      <View style={styles.infoRow}>
+                        <Text style={styles.infoLabel}>Batch</Text>
+                        <Text style={styles.infoValue} numberOfLines={1}>{batchName ?? '—'}</Text>
+                      </View>
+                      <View style={styles.infoRowDivider} />
+                      <View style={styles.infoRow}>
+                        <Text style={styles.infoLabel}>Department</Text>
+                        <Text style={styles.infoValue} numberOfLines={1}>{selectedSubject.department.name}</Text>
+                      </View>
+                      <View style={styles.infoRowDivider} />
+                      <View style={styles.infoRow}>
+                        <Text style={styles.infoLabel}>Timetable Slots</Text>
+                        <Text style={styles.infoValue}>{selectedSubject._count.timetableSlots}</Text>
+                      </View>
+                    </View>
+
+                    {/* Assignments */}
+                    {selectedSubject.assignments.length > 0 && (
+                      <View style={{ marginTop: 4 }}>
+                        <Text style={styles.sectionTitle}>Batch Assignments</Text>
+                        {selectedSubject.assignments.map((a) => (
+                          <View key={a.id} style={styles.assignmentCard}>
+                            <View style={styles.assignmentRow}>
+                              <Text style={styles.assignmentLabel}>Batch</Text>
+                              <Text style={styles.assignmentValue}>{a.batch.name}</Text>
+                            </View>
+                            <View style={styles.assignmentDivider} />
+                            <View style={styles.assignmentRow}>
+                              <Text style={styles.assignmentLabel}>Staff</Text>
+                              <Text style={styles.assignmentValue}>
+                                {a.staff ? a.staff.name : 'Not Assigned'}
+                              </Text>
+                            </View>
+                            {a.staff?.email && (
+                              <>
+                                <View style={styles.assignmentDivider} />
+                                <View style={styles.assignmentRow}>
+                                  <Text style={styles.assignmentLabel}>Email</Text>
+                                  <Text style={styles.assignmentValue} numberOfLines={1}>{a.staff.email}</Text>
+                                </View>
+                              </>
+                            )}
+                          </View>
+                        ))}
+                      </View>
+                    )}
+
+                    {/* Assign Teacher button */}
+                    <TouchableOpacity
+                      style={styles.assignBtn}
+                      activeOpacity={0.85}
+                      onPress={openAssignModal}
+                    >
+                      <Text style={styles.assignBtnText}>Assign Teacher</Text>
+                    </TouchableOpacity>
+                  </ScrollView>
+                ) : null}
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
+
+      {/* ── Create Subject Modal ── */}
+      <Modal visible={createVisible} transparent animationType="slide" statusBarTranslucent onRequestClose={() => setCreateVisible(false)}>
+        <TouchableWithoutFeedback onPress={() => { Keyboard.dismiss(); setCreateVisible(false); }}>
+          <KeyboardAvoidingView style={styles.createOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+            <TouchableWithoutFeedback>
+              <View style={[styles.createSheet, { paddingBottom: Math.max(insets.bottom, 24) + keyboardPadding }]}>
+                <View style={styles.modalHandle} />
+                <View style={styles.modalHeaderRow}>
                   <Text style={styles.modalTitle}>Add Subject</Text>
-                  <TouchableOpacity onPress={() => setSubjectModalVisible(false)}>
-                    <Text style={styles.closeModalText}>✕</Text>
+                  <TouchableOpacity style={styles.modalCloseBtn} onPress={() => setCreateVisible(false)}>
+                    <Text style={styles.modalCloseTxt}>✕</Text>
                   </TouchableOpacity>
                 </View>
-                
+
                 <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
                   <View style={styles.inputGroup}>
                     <Text style={styles.inputLabel}>Subject Name</Text>
-                    <TextInput style={styles.modalInput} placeholder="e.g. Data Structures" value={newSubName} onChangeText={setNewSubName} />
+                    <TextInput style={styles.formInput} placeholder="e.g. Data Structures" placeholderTextColor={COLORS.textTertiary} value={newSubName} onChangeText={setNewSubName} editable={!isCreating} />
                   </View>
                   <View style={styles.inputGroup}>
                     <Text style={styles.inputLabel}>Subject Code</Text>
-                    <TextInput style={styles.modalInput} placeholder="e.g. CS301" value={newSubCode} onChangeText={setNewSubCode} />
+                    <TextInput style={styles.formInput} placeholder="e.g. CS201" placeholderTextColor={COLORS.textTertiary} autoCapitalize="characters" value={newSubCode} onChangeText={setNewSubCode} editable={!isCreating} />
                   </View>
                   <View style={styles.inputGroup}>
-                    <Text style={styles.inputLabel}>Semester Number</Text>
-                    <TextInput style={styles.modalInput} placeholder="e.g. 3" keyboardType="numeric" value={newSubSem} onChangeText={setNewSubSem} />
+                    <Text style={styles.inputLabel}>Semester</Text>
+                    <TextInput style={styles.formInput} placeholder="e.g. 3" placeholderTextColor={COLORS.textTertiary} keyboardType="number-pad" maxLength={2} value={newSubSemester} onChangeText={setNewSubSemester} editable={!isCreating} />
                   </View>
                 </ScrollView>
 
-                <View style={styles.modalActions}>
-                  <TouchableOpacity style={styles.cancelBtn} onPress={() => setSubjectModalVisible(false)}>
+                <View style={styles.formActions}>
+                  <TouchableOpacity style={styles.cancelBtn} onPress={() => setCreateVisible(false)} disabled={isCreating}>
                     <Text style={styles.cancelBtnText}>Cancel</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={[styles.saveBtn, (!newSubName || !newSubCode || !newSubSem) && styles.saveBtnDisabled]} onPress={handleAddSubject}>
-                    <Text style={styles.saveBtnText}>Save Subject</Text>
+                  <TouchableOpacity
+                    style={[styles.saveBtn, !isCreateFormValid && styles.saveBtnDisabled]}
+                    onPress={handleCreateSubject}
+                    disabled={!isCreateFormValid || isCreating}
+                    activeOpacity={0.85}
+                  >
+                    {isCreating
+                      ? <ActivityIndicator color={COLORS.white} size="small" />
+                      : <Text style={styles.saveBtnText}>Add Subject</Text>
+                    }
                   </TouchableOpacity>
                 </View>
               </View>
@@ -315,267 +594,228 @@ const TutorSubjectsScreen = () => {
         </TouchableWithoutFeedback>
       </Modal>
 
-      {/* ========================================================= */}
-      {/* ADD TIMETABLE MODAL (Dynamic Form) */}
-      {/* ========================================================= */}
-      <Modal
-        visible={timetableModalVisible}
-        transparent={true}
-        animationType="slide"
-        statusBarTranslucent={true}
-      >
-        <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-          <View style={[styles.modalContentFullscreen, { paddingTop: Math.max(insets.top, 20), paddingBottom: Math.max(insets.bottom, 24) + keyboardPadding }]}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Create Time Table</Text>
-              <TouchableOpacity onPress={() => setTimetableModalVisible(false)}>
-                <Text style={styles.closeModalText}>✕</Text>
-              </TouchableOpacity>
-            </View>
+      {/* ── Assign Teacher Modal ── */}
+      <Modal visible={assignVisible} transparent animationType="slide" statusBarTranslucent onRequestClose={() => setAssignVisible(false)}>
+        <TouchableWithoutFeedback onPress={() => setAssignVisible(false)}>
+          <View style={styles.detailOverlay}>
+            <TouchableWithoutFeedback>
+              <View style={[styles.assignSheet, { paddingBottom: Math.max(insets.bottom, 24) }]}>
+                <View style={styles.modalHandle} />
+                <View style={styles.modalHeaderRow}>
+                  <Text style={styles.modalTitle}>Select Teacher</Text>
+                  <TouchableOpacity style={styles.modalCloseBtn} onPress={() => setAssignVisible(false)}>
+                    <Text style={styles.modalCloseTxt}>✕</Text>
+                  </TouchableOpacity>
+                </View>
 
-            <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-              
-              {/* Semester Input */}
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Target Semester Number</Text>
-                <TextInput 
-                  style={styles.modalInput} 
-                  placeholder="e.g. 3" 
-                  keyboardType="numeric" 
-                  value={ttSem} 
-                  onChangeText={setTtSem} 
-                />
-              </View>
-
-              <View style={styles.divider} />
-              
-              <View style={styles.sectionHeaderRow}>
-                <Text style={styles.sectionHeader}>Periods</Text>
-                <TouchableOpacity style={styles.addPeriodBtn} onPress={addPeriodCard}>
-                  <Text style={styles.addPeriodBtnText}>+ Add Period</Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* Dynamic Entry Array */}
-              {ttEntries.map((entry, index) => {
-                const filteredSubjects = subjectsList.filter(s => s.semester === ttSem);
-                
-                return (
-                  <View key={entry.id} style={styles.entryCard}>
-                    <View style={styles.entryHeader}>
-                      <Text style={styles.entryTitle}>Period {index + 1}</Text>
-                      {ttEntries.length > 1 && (
-                        <TouchableOpacity onPress={() => removePeriodCard(entry.id)}>
-                          <Text style={styles.removeText}>Remove</Text>
-                        </TouchableOpacity>
-                      )}
-                    </View>
-
-                    {/* Day Selection */}
-                    <Text style={styles.subLabel}>Day</Text>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroll}>
-                      {DAYS.map(day => (
-                        <TouchableOpacity key={day} onPress={() => updateEntry(entry.id, 'day', day)}
-                          style={[styles.chip, entry.day === day && styles.chipActive]}>
-                          <Text style={[styles.chipText, entry.day === day && styles.chipTextActive]}>{day.slice(0, 3)}</Text>
-                        </TouchableOpacity>
-                      ))}
-                    </ScrollView>
-
-                    {/* Times */}
-                    <View style={styles.rowInputs}>
-                      <View style={{ flex: 1, marginRight: 8 }}>
-                        <Text style={styles.subLabel}>Start Time</Text>
-                        <TextInput style={styles.modalInputSm} placeholder="09:00 AM" value={entry.startTime} onChangeText={v => updateEntry(entry.id, 'startTime', v)} />
-                      </View>
-                      <View style={{ flex: 1, marginLeft: 8 }}>
-                        <Text style={styles.subLabel}>End Time</Text>
-                        <TextInput style={styles.modalInputSm} placeholder="10:00 AM" value={entry.endTime} onChangeText={v => updateEntry(entry.id, 'endTime', v)} />
-                      </View>
-                    </View>
-
-                    {/* Type Selection */}
-                    <Text style={styles.subLabel}>Type</Text>
-                    <View style={styles.typeContainer}>
-                      {PERIOD_TYPES.map(type => (
-                        <TouchableOpacity key={type} onPress={() => updateEntry(entry.id, 'type', type as any)}
-                          style={[styles.chip, entry.type === type && styles.chipActive]}>
-                          <Text style={[styles.chipText, entry.type === type && styles.chipTextActive]}>{type}</Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-
-                    {/* Conditional Subject & Staff Selection */}
-                    {entry.type === 'Subject' && (
-                      <>
-                        <Text style={styles.subLabel}>Subject (Filtered by Sem {ttSem || '?'})</Text>
-                        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroll}>
-                          {filteredSubjects.length === 0 ? (
-                            <Text style={styles.noDataText}>No subjects added for Semester {ttSem || '?'} yet.</Text>
-                          ) : (
-                            filteredSubjects.map(sub => (
-                              <TouchableOpacity key={sub.id} onPress={() => updateEntry(entry.id, 'subjectId', sub.id)}
-                                style={[styles.chip, entry.subjectId === sub.id && styles.chipActive]}>
-                                <Text style={[styles.chipText, entry.subjectId === sub.id && styles.chipTextActive]}>{sub.name}</Text>
-                              </TouchableOpacity>
-                            ))
-                          )}
-                        </ScrollView>
-
-                        <Text style={styles.subLabel}>Staff</Text>
-                        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroll}>
-                          {MOCK_STAFF.map(staff => (
-                            <TouchableOpacity key={staff.id} onPress={() => updateEntry(entry.id, 'staffId', staff.id)}
-                              style={[styles.chip, entry.staffId === staff.id && styles.chipActive]}>
-                              <Text style={[styles.chipText, entry.staffId === staff.id && styles.chipTextActive]}>{staff.name}</Text>
-                            </TouchableOpacity>
-                          ))}
-                        </ScrollView>
-                      </>
-                    )}
+                {isLoadingStaff ? (
+                  <View style={styles.detailLoader}>
+                    <ActivityIndicator color={COLORS.primary} size="large" />
+                    <Text style={styles.loadingText}>Loading staff…</Text>
                   </View>
-                );
-              })}
-
-            </ScrollView>
-
-            <View style={[styles.modalActions, { marginTop: 20 }]}>
-              <TouchableOpacity style={styles.saveBtnFull} onPress={handleAddTimetable}>
-                <Text style={styles.saveBtnText}>Save Time Table ({ttEntries.length} Periods)</Text>
-              </TouchableOpacity>
-            </View>
-
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
-
-      {/* ========================================================= */}
-      {/* VIEW TIMETABLE MODAL */}
-      {/* ========================================================= */}
-      <Modal
-        visible={viewTimetableModalVisible}
-        transparent={true}
-        animationType="slide"
-        statusBarTranslucent={true}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContentFullscreen, { paddingTop: Math.max(insets.top, 20), paddingBottom: Math.max(insets.bottom, 24) }]}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Semester {selectedTimetable?.semester} Schedule</Text>
-              <TouchableOpacity onPress={() => setViewTimetableModalVisible(false)}>
-                <Text style={styles.closeModalText}>✕</Text>
-              </TouchableOpacity>
-            </View>
-            <ScrollView showsVerticalScrollIndicator={false}>
-              {selectedTimetable && DAYS.map(day => {
-                const dayEntries = selectedTimetable.entries.filter(e => e.day === day);
-                if (dayEntries.length === 0) return null;
-
-                return (
-                  <View key={day} style={styles.dayGroupContainer}>
-                    <Text style={styles.dayGroupHeader}>{day}</Text>
-                    {dayEntries.map(entry => {
-                      const subject = subjectsList.find(s => s.id === entry.subjectId);
-                      const staff = MOCK_STAFF.find(s => s.id === entry.staffId);
+                ) : staffList.length === 0 ? (
+                  <View style={styles.detailLoader}>
+                    <Text style={styles.loadingText}>No active staff found</Text>
+                  </View>
+                ) : (
+                  <FlatList
+                    data={staffList}
+                    keyExtractor={item => item.id}
+                    showsVerticalScrollIndicator={false}
+                    renderItem={({ item }) => {
+                      const c = getAvatarColor(item.name);
+                      const ini = item.name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
                       return (
-                        <View key={entry.id} style={styles.viewEntryCard}>
-                          <View style={styles.viewTimeBox}>
-                            <Text style={styles.viewTimeText}>{entry.startTime}</Text>
-                            <Text style={styles.viewTimeDivider}>to</Text>
-                            <Text style={styles.viewTimeText}>{entry.endTime}</Text>
+                        <TouchableOpacity
+                          style={styles.staffCard}
+                          activeOpacity={0.7}
+                          onPress={() => handleAssignTeacher(item.id)}
+                          disabled={isAssigning}
+                        >
+                          <View style={[styles.cardAvatar, { backgroundColor: c.bg }]}>
+                            <Text style={[styles.cardAvatarText, { color: c.text }]}>{ini}</Text>
                           </View>
-                          <View style={styles.viewDetailsBox}>
-                            {entry.type === 'Subject' ? (
-                              <>
-                                <Text style={styles.viewSubjectName}>{subject?.name || 'Unknown Subject'}</Text>
-                                <Text style={styles.viewStaffName}>{staff?.name || 'Unassigned Staff'}</Text>
-                              </>
-                            ) : (
-                              <Text style={styles.viewBreakName}>{entry.type}</Text>
-                            )}
+                          <View style={styles.cardBody}>
+                            <Text style={styles.cardName} numberOfLines={1}>{item.name}</Text>
+                            <Text style={styles.cardSub}>{item.email}</Text>
                           </View>
-                        </View>
+                          {isAssigning && (
+                            <ActivityIndicator color={COLORS.primary} size="small" />
+                          )}
+                        </TouchableOpacity>
                       );
-                    })}
-                  </View>
-                );
-              })}
-            </ScrollView>
+                    }}
+                  />
+                )}
+              </View>
+            </TouchableWithoutFeedback>
           </View>
-        </View>
+        </TouchableWithoutFeedback>
       </Modal>
-
     </View>
   );
 };
 
+// ── Styles ────────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 24, paddingBottom: 16, backgroundColor: COLORS.background },
-  headerTitle: { fontSize: 24, fontWeight: '800', color: COLORS.textPrimary },
-  addButton: { backgroundColor: '#1B2A4A', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 12 },
-  addButtonText: { color: COLORS.white, fontSize: 14, fontWeight: '600' },
-  tabsContainer: { flexDirection: 'row', paddingHorizontal: 24, marginBottom: 16 },
-  tabBtn: { flex: 1, paddingVertical: 12, alignItems: 'center', backgroundColor: COLORS.border, borderRadius: 12, marginHorizontal: 4 },
-  tabBtnActive: { backgroundColor: COLORS.primary },
+
+  // Header
+  header: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingHorizontal: 24, paddingBottom: 16,
+  },
+  headerTitle: { fontSize: 26, fontWeight: '800', color: COLORS.textPrimary, letterSpacing: -0.5 },
+  headerSub: { fontSize: 13, color: COLORS.textSecondary, fontWeight: '500', marginTop: 2 },
+
+  // Search
+  searchWrap: { paddingHorizontal: 24, marginBottom: 16 },
+  searchBar: {
+    flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.white,
+    borderRadius: 16, paddingHorizontal: 14, paddingVertical: 12,
+    borderWidth: 1.5, borderColor: COLORS.border, gap: 10,
+  },
+  searchBarFocused: { borderColor: COLORS.primary },
+  searchInput: { flex: 1, fontSize: 14, color: COLORS.textPrimary, fontWeight: '500', padding: 0 },
+  clearText: { fontSize: 13, color: COLORS.textSecondary, fontWeight: '700', paddingHorizontal: 4 },
+
+  // Tabs
+  tabRow: {
+    flexDirection: 'row', marginHorizontal: 20, marginBottom: 12,
+    backgroundColor: COLORS.white, borderRadius: 14, padding: 4,
+    borderWidth: 1, borderColor: COLORS.border,
+  },
+  tab: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    paddingVertical: 10, borderRadius: 11, gap: 6,
+  },
+  tabActive: { backgroundColor: COLORS.primaryLight },
+  tabPrevious: { backgroundColor: '#FFF7ED' },
+  tabDot: { width: 7, height: 7, borderRadius: 4 },
   tabText: { fontSize: 14, fontWeight: '600', color: COLORS.textSecondary },
-  tabTextActive: { color: COLORS.white },
+  tabTextActive: { color: COLORS.primary, fontWeight: '700' },
+  tabTextPrevious: { color: '#F97316', fontWeight: '700' },
+  searchingText: {
+    fontSize: 13, color: COLORS.textSecondary, fontWeight: '500',
+    paddingHorizontal: 24, marginBottom: 8, fontStyle: 'italic',
+  },
+
+  // Loader / List
+  loaderWrap: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12 },
+  loadingText: { fontSize: 14, color: COLORS.textSecondary, fontWeight: '500' },
   listContent: { paddingHorizontal: 24, paddingBottom: 40 },
-  cardContainer: { backgroundColor: COLORS.white, borderRadius: 20, padding: 18, marginBottom: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.03, shadowRadius: 10, elevation: 2 },
-  cardInfo: { flexDirection: 'row', alignItems: 'center', flex: 1 },
-  avatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: COLORS.purpleLight, justifyContent: 'center', alignItems: 'center', marginRight: 16 },
-  avatarText: { fontSize: 20, fontWeight: '700', color: COLORS.purple },
-  details: { flex: 1 },
-  cardTitle: { fontSize: 16, fontWeight: '700', color: COLORS.textPrimary, marginBottom: 4 },
-  cardSub: { fontSize: 14, color: COLORS.textSecondary },
-  viewButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: COLORS.background, justifyContent: 'center', alignItems: 'center' },
-  emptyContainer: { paddingTop: 40, alignItems: 'center' },
-  emptyText: { fontSize: 15, color: COLORS.textSecondary },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.4)', justifyContent: 'flex-end' },
-  modalContent: { backgroundColor: COLORS.white, borderTopLeftRadius: 30, borderTopRightRadius: 30, padding: 24, maxHeight: '90%' },
-  modalContentFullscreen: { backgroundColor: COLORS.white, flex: 1, paddingHorizontal: 24 },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },
-  modalTitle: { fontSize: 20, fontWeight: '800', color: COLORS.textPrimary },
-  closeModalText: { fontSize: 20, fontWeight: '600', color: COLORS.textSecondary, padding: 4 },
-  inputGroup: { marginBottom: 20 },
-  inputLabel: { fontSize: 14, fontWeight: '600', color: COLORS.textPrimary, marginBottom: 8 },
-  modalInput: { backgroundColor: COLORS.inputBg, borderWidth: 1, borderColor: COLORS.border, borderRadius: 14, paddingHorizontal: 16, paddingVertical: 14, fontSize: 15, color: COLORS.textPrimary },
-  modalInputSm: { backgroundColor: COLORS.inputBg, borderWidth: 1, borderColor: COLORS.border, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, color: COLORS.textPrimary },
-  rowInputs: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16 },
-  modalActions: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 },
-  cancelBtn: { flex: 1, paddingVertical: 16, borderRadius: 14, backgroundColor: COLORS.inputBg, marginRight: 10, alignItems: 'center' },
-  cancelBtnText: { fontSize: 16, fontWeight: '700', color: COLORS.textPrimary },
-  saveBtn: { flex: 1, paddingVertical: 16, borderRadius: 14, backgroundColor: COLORS.textPrimary, marginLeft: 10, alignItems: 'center' },
-  saveBtnFull: { flex: 1, paddingVertical: 16, borderRadius: 14, backgroundColor: COLORS.textPrimary, alignItems: 'center' },
-  saveBtnDisabled: { backgroundColor: '#A0AABF', opacity: 0.7 },
-  saveBtnText: { fontSize: 16, fontWeight: '700', color: COLORS.white },
-  divider: { height: 1, backgroundColor: COLORS.border, marginVertical: 20 },
-  sectionHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-  sectionHeader: { fontSize: 18, fontWeight: '800', color: COLORS.textPrimary },
-  addPeriodBtn: { backgroundColor: COLORS.purpleLight, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 },
-  addPeriodBtnText: { color: COLORS.purple, fontWeight: '700', fontSize: 12 },
-  entryCard: { backgroundColor: COLORS.white, borderWidth: 1, borderColor: COLORS.border, borderRadius: 16, padding: 16, marginBottom: 16 },
-  entryHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  entryTitle: { fontSize: 16, fontWeight: '700', color: COLORS.textPrimary },
-  removeText: { color: '#FF4757', fontWeight: '600', fontSize: 12 },
-  subLabel: { fontSize: 12, fontWeight: '600', color: COLORS.textSecondary, marginBottom: 6, marginTop: 4 },
-  chipScroll: { marginBottom: 12 },
-  typeContainer: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 12 },
-  chip: { backgroundColor: COLORS.inputBg, borderWidth: 1, borderColor: COLORS.border, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8, marginRight: 8, marginBottom: 8 },
-  chipActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
-  chipText: { fontSize: 13, fontWeight: '500', color: COLORS.textSecondary },
-  chipTextActive: { color: COLORS.white, fontWeight: '700' },
-  noDataText: { fontSize: 12, color: COLORS.textSecondary, fontStyle: 'italic', paddingVertical: 8 },
-  dayGroupContainer: { marginBottom: 24 },
-  dayGroupHeader: { fontSize: 18, fontWeight: '800', color: COLORS.textPrimary, marginBottom: 12, borderBottomWidth: 1, borderBottomColor: COLORS.border, paddingBottom: 8 },
-  viewEntryCard: { flexDirection: 'row', backgroundColor: COLORS.inputBg, borderRadius: 16, padding: 12, marginBottom: 10, borderWidth: 1, borderColor: COLORS.border },
-  viewTimeBox: { width: 90, justifyContent: 'center', alignItems: 'center', borderRightWidth: 1, borderRightColor: COLORS.border, paddingRight: 10, marginRight: 10 },
-  viewTimeText: { fontSize: 12, fontWeight: '700', color: COLORS.textPrimary },
-  viewTimeDivider: { fontSize: 10, color: COLORS.textSecondary, marginVertical: 2 },
-  viewDetailsBox: { flex: 1, justifyContent: 'center' },
-  viewSubjectName: { fontSize: 15, fontWeight: '700', color: COLORS.primary, marginBottom: 4 },
-  viewStaffName: { fontSize: 13, color: COLORS.textSecondary, fontWeight: '500' },
-  viewBreakName: { fontSize: 15, fontWeight: '700', color: COLORS.orange, fontStyle: 'italic' },
+
+  // Card
+  card: {
+    backgroundColor: COLORS.cardBg, borderRadius: 20, padding: 16, marginBottom: 12,
+    flexDirection: 'row', alignItems: 'center',
+    shadowColor: COLORS.shadow, shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06, shadowRadius: 12, elevation: 3,
+  },
+  cardAvatar: { width: 46, height: 46, borderRadius: 14, justifyContent: 'center', alignItems: 'center', marginRight: 14 },
+  cardAvatarText: { fontSize: 17, fontWeight: '800', letterSpacing: -0.5 },
+  cardBody: { flex: 1 },
+  cardName: { fontSize: 15, fontWeight: '700', color: COLORS.textPrimary, letterSpacing: -0.2, marginBottom: 3 },
+  cardSub: { fontSize: 13, color: COLORS.textSecondary, fontWeight: '500' },
+  viewBtn: {
+    width: 36, height: 36, borderRadius: 11, backgroundColor: COLORS.primaryLight,
+    justifyContent: 'center', alignItems: 'center',
+  },
+
+  endText: { textAlign: 'center', color: COLORS.textTertiary, fontSize: 13, fontWeight: '500', marginVertical: 16 },
+
+  // Empty
+  emptyWrap: { flex: 1, alignItems: 'center', paddingTop: 60, gap: 12 },
+  emptyTitle: { fontSize: 18, fontWeight: '800', color: COLORS.textPrimary, letterSpacing: -0.3 },
+  emptySubtitle: { fontSize: 14, color: COLORS.textSecondary, fontWeight: '500', textAlign: 'center', paddingHorizontal: 32 },
+
+  // Detail modal
+  detailOverlay: { flex: 1, backgroundColor: 'rgba(15,18,35,0.55)', justifyContent: 'flex-end' },
+  detailSheet: {
+    backgroundColor: COLORS.white, borderTopLeftRadius: 32, borderTopRightRadius: 32,
+    paddingHorizontal: 24, paddingTop: 16, maxHeight: '90%',
+  },
+  modalHandle: { width: 40, height: 4, borderRadius: 2, backgroundColor: COLORS.border, alignSelf: 'center', marginBottom: 20 },
+  detailLoader: { paddingVertical: 48, alignItems: 'center', gap: 12 },
+  modalHeaderRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 24 },
+  modalTitle: { flex: 1, fontSize: 20, fontWeight: '800', color: COLORS.textPrimary, letterSpacing: -0.3 },
+  modalCloseBtn: { width: 32, height: 32, borderRadius: 10, backgroundColor: COLORS.inputBg, justifyContent: 'center', alignItems: 'center' },
+  modalCloseTxt: { fontSize: 14, fontWeight: '700', color: COLORS.textSecondary },
+
+  // Avatar in detail
+  detailAvatarWrap: { alignSelf: 'center', marginBottom: 12 },
+  detailAvatar: { width: 72, height: 72, borderRadius: 22, justifyContent: 'center', alignItems: 'center' },
+  detailAvatarText: { fontSize: 26, fontWeight: '800', letterSpacing: -1 },
+  detailName: { fontSize: 20, fontWeight: '800', color: COLORS.textPrimary, textAlign: 'center', letterSpacing: -0.4, marginBottom: 4 },
+  detailSub: { fontSize: 14, color: COLORS.textSecondary, fontWeight: '500', textAlign: 'center', marginBottom: 20 },
+
+  // Info card
+  infoCard: {
+    backgroundColor: COLORS.inputBg, borderRadius: 18, borderWidth: 1,
+    borderColor: COLORS.border, overflow: 'hidden', marginBottom: 20,
+  },
+  infoRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 18, paddingVertical: 14 },
+  infoRowDivider: { height: 1, backgroundColor: COLORS.border, marginHorizontal: 18 },
+  infoLabel: { fontSize: 14, color: COLORS.textSecondary, fontWeight: '600' },
+  infoValue: { fontSize: 14, color: COLORS.textPrimary, fontWeight: '700', maxWidth: '60%', textAlign: 'right' },
+
+  // Assignments section
+  sectionTitle: { fontSize: 16, fontWeight: '800', color: COLORS.textPrimary, marginBottom: 12, letterSpacing: -0.3 },
+  assignmentCard: {
+    backgroundColor: COLORS.inputBg, borderRadius: 16, borderWidth: 1,
+    borderColor: COLORS.border, overflow: 'hidden', marginBottom: 10,
+  },
+  assignmentRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12 },
+  assignmentDivider: { height: 1, backgroundColor: COLORS.border, marginHorizontal: 16 },
+  assignmentLabel: { fontSize: 13, color: COLORS.textSecondary, fontWeight: '600' },
+  assignmentValue: { fontSize: 13, color: COLORS.textPrimary, fontWeight: '700', maxWidth: '55%', textAlign: 'right' },
+
+  // Add button
+  addButton: {
+    backgroundColor: COLORS.primary, paddingHorizontal: 16, paddingVertical: 9, borderRadius: 12,
+    shadowColor: COLORS.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4,
+  },
+  addButtonText: { color: COLORS.white, fontSize: 14, fontWeight: '700' },
+
+  // Create modal
+  createOverlay: { flex: 1, backgroundColor: 'rgba(15,18,35,0.55)', justifyContent: 'flex-end' },
+  createSheet: {
+    backgroundColor: COLORS.white, borderTopLeftRadius: 32, borderTopRightRadius: 32,
+    paddingHorizontal: 24, paddingTop: 16, maxHeight: '85%',
+  },
+  inputGroup: { marginBottom: 16 },
+  inputLabel: { fontSize: 13, fontWeight: '700', color: COLORS.textSecondary, marginBottom: 8, letterSpacing: 0.2 },
+  formInput: {
+    backgroundColor: COLORS.inputBg, borderRadius: 14, paddingHorizontal: 16, paddingVertical: 14,
+    fontSize: 15, color: COLORS.textPrimary, fontWeight: '600', borderWidth: 1, borderColor: COLORS.border,
+  },
+  formActions: { flexDirection: 'row', gap: 12, marginTop: 8, marginBottom: 8 },
+  cancelBtn: {
+    flex: 1, height: 50, borderRadius: 14, justifyContent: 'center', alignItems: 'center',
+    backgroundColor: COLORS.inputBg, borderWidth: 1, borderColor: COLORS.border,
+  },
+  cancelBtnText: { color: COLORS.textPrimary, fontSize: 15, fontWeight: '700' },
+  saveBtn: {
+    flex: 1, height: 50, borderRadius: 14, justifyContent: 'center', alignItems: 'center',
+    backgroundColor: COLORS.primary,
+  },
+  saveBtnDisabled: { opacity: 0.5 },
+  saveBtnText: { color: COLORS.white, fontSize: 15, fontWeight: '700' },
+
+  // Assign teacher
+  assignBtn: {
+    backgroundColor: COLORS.primary, borderRadius: 14, paddingVertical: 14,
+    alignItems: 'center', marginTop: 8,
+  },
+  assignBtnText: { color: COLORS.white, fontSize: 15, fontWeight: '700' },
+  assignSheet: {
+    backgroundColor: COLORS.white, borderTopLeftRadius: 32, borderTopRightRadius: 32,
+    paddingHorizontal: 24, paddingTop: 16, maxHeight: '75%',
+  },
+  staffCard: {
+    flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.inputBg,
+    borderRadius: 16, padding: 14, marginBottom: 10, borderWidth: 1, borderColor: COLORS.border,
+  },
 });
 
 export default TutorSubjectsScreen;

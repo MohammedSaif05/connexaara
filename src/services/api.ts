@@ -28,7 +28,14 @@ export interface LoginResponse {
     isActive: boolean;
     mustChangePassword: boolean;
     createdAt: string;
-    batchId: string | null;
+    batch: {
+      id: string;
+      name: string;
+      startYear: number;
+      endYear: number;
+      currentSemester: number;
+      isPassedOut: boolean;
+    } | null;
     department: {
       id: string;
       name: string;
@@ -446,3 +453,87 @@ export const deactivateStudent = (id: string): Promise<{ message: string }> =>
  */
 export const activateStudent = (id: string): Promise<{ message: string }> =>
   request<{ message: string }>('PATCH', `/students/${id}/activate`, undefined, true);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Subject API
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface SubjectListItem {
+  id: string;
+  name: string;
+  subjectCode: string;
+  departmentId: string;
+  semester: number;
+}
+
+export interface SubjectListResponse {
+  data: SubjectListItem[];
+  meta: { total: number; page: number; limit: number };
+}
+
+export interface SubjectDetail {
+  id: string;
+  name: string;
+  subjectCode: string;
+  semester: number;
+  departmentId: string;
+  department: {
+    id: string;
+    name: string;
+  };
+  assignments: {
+    id: string;
+    batch: { id: string; name: string };
+    staff: { id: string; name: string; email: string } | null;
+  }[];
+  _count: { timetableSlots: number };
+}
+
+/**
+ * GET /subjects?page=1&limit=10&search=&semester=3
+ * Returns a paginated list of subjects.
+ */
+export const getSubjects = (
+  page: number,
+  limit: number,
+  search: string,
+  semester?: number,
+): Promise<SubjectListResponse> => {
+  const params = new URLSearchParams({
+    page: String(page),
+    limit: String(limit),
+    ...(search.trim() ? { search: search.trim() } : {}),
+    ...(semester !== undefined ? { semester: String(semester) } : {}),
+  });
+  return request<SubjectListResponse>('GET', `/subjects?${params.toString()}`, undefined, true);
+};
+
+/**
+ * GET /subjects/:id
+ * Returns full detail of a single subject.
+ */
+export const getSubjectById = (id: string): Promise<SubjectDetail> =>
+  request<SubjectDetail>('GET', `/subjects/${id}`, undefined, true);
+
+/**
+ * POST /subjects
+ * Creates a new subject.
+ */
+export const createSubject = (payload: {
+  name: string;
+  subjectCode: string;
+  departmentId: string;
+  semester: number;
+}): Promise<SubjectListItem> =>
+  request<SubjectListItem>('POST', '/subjects', payload, true);
+
+/**
+ * POST /subjects/assign
+ * Assigns a subject to a batch with a staff member.
+ */
+export const assignSubject = (payload: {
+  subjectId: string;
+  batchId: string;
+  staffId: string;
+}): Promise<{ message: string }> =>
+  request<{ message: string }>('POST', '/subjects/assign', payload, true);

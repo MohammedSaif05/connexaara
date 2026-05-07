@@ -18,7 +18,10 @@ const KEYS = {
   USER_NAME: '@connexaara/user_name',
   USER_EMAIL: '@connexaara/user_email',
   DEPT_NAME: '@connexaara/dept_name',
+  DEPT_ID: '@connexaara/dept_id',
   BATCH_ID: '@connexaara/batch_id',
+  BATCH_NAME: '@connexaara/batch_name',
+  CURRENT_SEMESTER: '@connexaara/current_semester',
 } as const;
 
 // --- Types ---
@@ -32,7 +35,10 @@ export interface StoredAuthData {
   name: string;
   email: string;
   departmentName: string;
+  departmentId: string | null;
   batchId: string | null;
+  batchName: string | null;
+  currentSemester: number | null;
 }
 
 // --- Terms Agreement ---
@@ -56,10 +62,25 @@ export const saveAuthData = async (data: StoredAuthData): Promise<void> => {
   await AsyncStorage.setItem(KEYS.USER_NAME, data.name);
   await AsyncStorage.setItem(KEYS.USER_EMAIL, data.email);
   await AsyncStorage.setItem(KEYS.DEPT_NAME, data.departmentName);
+  if (data.departmentId) {
+    await AsyncStorage.setItem(KEYS.DEPT_ID, data.departmentId);
+  } else {
+    await AsyncStorage.removeItem(KEYS.DEPT_ID);
+  }
   if (data.batchId) {
     await AsyncStorage.setItem(KEYS.BATCH_ID, data.batchId);
   } else {
     await AsyncStorage.removeItem(KEYS.BATCH_ID);
+  }
+  if (data.batchName) {
+    await AsyncStorage.setItem(KEYS.BATCH_NAME, data.batchName);
+  } else {
+    await AsyncStorage.removeItem(KEYS.BATCH_NAME);
+  }
+  if (data.currentSemester !== null && data.currentSemester !== undefined) {
+    await AsyncStorage.setItem(KEYS.CURRENT_SEMESTER, String(data.currentSemester));
+  } else {
+    await AsyncStorage.removeItem(KEYS.CURRENT_SEMESTER);
   }
 };
 
@@ -71,7 +92,10 @@ export const getAuthData = async (): Promise<StoredAuthData | null> => {
   const name = await AsyncStorage.getItem(KEYS.USER_NAME);
   const email = await AsyncStorage.getItem(KEYS.USER_EMAIL);
   const departmentName = await AsyncStorage.getItem(KEYS.DEPT_NAME);
+  const departmentId = await AsyncStorage.getItem(KEYS.DEPT_ID);
   const batchId = await AsyncStorage.getItem(KEYS.BATCH_ID);
+  const batchName = await AsyncStorage.getItem(KEYS.BATCH_NAME);
+  const currentSemester = await AsyncStorage.getItem(KEYS.CURRENT_SEMESTER);
 
   if (!token || !role || !userId) return null;
 
@@ -83,7 +107,10 @@ export const getAuthData = async (): Promise<StoredAuthData | null> => {
     name: name ?? '',
     email: email ?? '',
     departmentName: departmentName ?? '',
+    departmentId: departmentId ?? null,
     batchId: batchId ?? null,
+    batchName: batchName ?? null,
+    currentSemester: currentSemester ? parseInt(currentSemester, 10) : null,
   };
 };
 
