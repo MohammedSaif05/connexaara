@@ -537,3 +537,16 @@ export const assignSubject = (payload: {
   staffId: string;
 }): Promise<{ message: string }> =>
   request<{ message: string }>('POST', '/subjects/assign', payload, true);
+/**
+ * PATCH /subjects/:id
+ * Updates an existing subject's details.
+ */
+export const updateSubject = (
+  id: string,
+  payload: {
+    name?: string;
+    subjectCode?: string;
+    semester?: number;
+  },
+): Promise<SubjectListItem> =>
+  request<SubjectListItem>('PATCH', `/subjects/${id}`, payload, true);

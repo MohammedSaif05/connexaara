@@ -23,6 +23,7 @@ import {
   getSubjects,
   getSubjectById,
   createSubject,
+  updateSubject,
   assignSubject,
   getStaff,
   SubjectListItem,
@@ -34,6 +35,7 @@ import { getAuthData } from '../../services/storage';
 import SearchIcon from '../../assets/svg/search.svg';
 import ViewIcon from '../../assets/svg/view.svg';
 import NotFoundIcon from '../../assets/svg/not-found.svg';
+import EditIcon from '../../assets/svg/edit.svg';
 
 const COLORS = {
   background: '#F0F2F8',
@@ -98,6 +100,13 @@ const TutorSubjectsScreen = () => {
   const [departmentId, setDepartmentId] = useState<string | null>(null);
   const [batchId, setBatchId] = useState<string | null>(null);
   const [batchName, setBatchName] = useState<string | null>(null);
+
+  // Edit modal
+  const [editVisible, setEditVisible] = useState(false);
+  const [editSubName, setEditSubName] = useState('');
+  const [editSubCode, setEditSubCode] = useState('');
+  const [editSubSemester, setEditSubSemester] = useState('');
+  const [isEditing, setIsEditing] = useState(false);
 
   // Assign teacher
   const [assignVisible, setAssignVisible] = useState(false);
@@ -171,6 +180,7 @@ const TutorSubjectsScreen = () => {
   }, [currentSemester, activeTab]);
 
   const handleRefresh = () => {
+    if (currentSemester === null) return;
     setIsRefreshing(true);
     setSearchQuery('');
     searchInputRef.current?.blur();
@@ -184,6 +194,7 @@ const TutorSubjectsScreen = () => {
     if (searchTimer.current) clearTimeout(searchTimer.current);
     searchTimer.current = setTimeout(() => {
       setIsTyping(false);
+      if (currentSemester === null) return;
       const sem = getSemesterFilter(activeTab);
       fetchSubjects(sem, 1, text, true);
     }, 500);
@@ -243,6 +254,47 @@ const TutorSubjectsScreen = () => {
     }
   };
 
+  // ── Edit Subject ────────────────────────────────────────────────────────────
+  const openEditModal = () => {
+    if (!selectedSubject) return;
+    setEditSubName(selectedSubject.name);
+    setEditSubCode(selectedSubject.subjectCode);
+    setEditSubSemester(String(selectedSubject.semester));
+    setEditVisible(true);
+  };
+
+  const isEditFormValid = !!editSubName.trim() && !!editSubCode.trim() && !!editSubSemester.trim();
+
+  const handleEditSubject = async () => {
+    if (!isEditFormValid || !selectedSubject) return;
+    Keyboard.dismiss();
+    setIsEditing(true);
+    try {
+      const payload: any = {};
+      if (editSubName.trim() !== selectedSubject.name) payload.name = editSubName.trim();
+      if (editSubCode.trim() !== selectedSubject.subjectCode) payload.subjectCode = editSubCode.trim();
+      if (parseInt(editSubSemester.trim(), 10) !== selectedSubject.semester) payload.semester = parseInt(editSubSemester.trim(), 10);
+
+      if (Object.keys(payload).length > 0) {
+        await updateSubject(selectedSubject.id, payload);
+        showToast('Subject updated successfully!', 'success');
+        
+        // Refresh the detail modal
+        const detail = await getSubjectById(selectedSubject.id);
+        setSelectedSubject(detail);
+        
+        // Refresh the list
+        const sem = getSemesterFilter(activeTab);
+        fetchSubjects(sem, 1, searchQuery, true);
+      }
+      setEditVisible(false);
+    } catch (err) {
+      showToast(err instanceof ApiError ? err.message : 'Failed to update subject.', 'error');
+    } finally {
+      setIsEditing(false);
+    }
+  };
+
   // ── Assign Teacher ─────────────────────────────────────────────────────────
   const openAssignModal = async () => {
     setAssignVisible(true);
@@ -278,10 +330,12 @@ const TutorSubjectsScreen = () => {
     }
   };
 
-  // ── Filter previous semesters (exclude current) ─────────────────────────────
-  const filteredList = activeTab === 'previous' && currentSemester
-    ? subjectList.filter(s => s.semester < currentSemester)
-    : subjectList;
+  // ── Filter list safely based on tab ─────────────────────────────────────────
+  const filteredList = subjectList.filter(s => {
+    if (!currentSemester) return false;
+    if (activeTab === 'current') return s.semester === currentSemester;
+    return s.semester < currentSemester;
+  });
 
   // ── Card ─────────────────────────────────────────────────────────────────────
   const renderItem = ({ item, index }: { item: SubjectListItem; index: number }) => {
@@ -452,9 +506,14 @@ const TutorSubjectsScreen = () => {
                     {/* Header row */}
                     <View style={styles.modalHeaderRow}>
                       <Text style={styles.modalTitle}>Subject Details</Text>
-                      <TouchableOpacity style={styles.modalCloseBtn} onPress={() => setDetailVisible(false)}>
-                        <Text style={styles.modalCloseTxt}>✕</Text>
-                      </TouchableOpacity>
+                      <View style={{ flexDirection: 'row', gap: 8 }}>
+                        <TouchableOpacity style={styles.modalCloseBtn} onPress={openEditModal}>
+                          <EditIcon width={16} height={16} color={COLORS.textSecondary} />
+                        </TouchableOpacity>
+                        <TouchableOpacity style={styles.modalCloseBtn} onPress={() => setDetailVisible(false)}>
+                          <Text style={styles.modalCloseTxt}>✕</Text>
+                        </TouchableOpacity>
+                      </View>
                     </View>
 
                     {/* Avatar */}
@@ -502,11 +561,6 @@ const TutorSubjectsScreen = () => {
                         <Text style={styles.sectionTitle}>Batch Assignments</Text>
                         {selectedSubject.assignments.map((a) => (
                           <View key={a.id} style={styles.assignmentCard}>
-                            <View style={styles.assignmentRow}>
-                              <Text style={styles.assignmentLabel}>Batch</Text>
-                              <Text style={styles.assignmentValue}>{a.batch.name}</Text>
-                            </View>
-                            <View style={styles.assignmentDivider} />
                             <View style={styles.assignmentRow}>
                               <Text style={styles.assignmentLabel}>Staff</Text>
                               <Text style={styles.assignmentValue}>
@@ -585,6 +639,57 @@ const TutorSubjectsScreen = () => {
                     {isCreating
                       ? <ActivityIndicator color={COLORS.white} size="small" />
                       : <Text style={styles.saveBtnText}>Add Subject</Text>
+                    }
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </TouchableWithoutFeedback>
+          </KeyboardAvoidingView>
+        </TouchableWithoutFeedback>
+      </Modal>
+
+      {/* ── Edit Subject Modal ── */}
+      <Modal visible={editVisible} transparent animationType="slide" statusBarTranslucent onRequestClose={() => setEditVisible(false)}>
+        <TouchableWithoutFeedback onPress={() => { Keyboard.dismiss(); setEditVisible(false); }}>
+          <KeyboardAvoidingView style={styles.createOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+            <TouchableWithoutFeedback>
+              <View style={[styles.createSheet, { paddingBottom: Math.max(insets.bottom, 24) + keyboardPadding }]}>
+                <View style={styles.modalHandle} />
+                <View style={styles.modalHeaderRow}>
+                  <Text style={styles.modalTitle}>Edit Subject</Text>
+                  <TouchableOpacity style={styles.modalCloseBtn} onPress={() => setEditVisible(false)}>
+                    <Text style={styles.modalCloseTxt}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.inputLabel}>Subject Name</Text>
+                    <TextInput style={styles.formInput} placeholder="e.g. Data Structures" placeholderTextColor={COLORS.textTertiary} value={editSubName} onChangeText={setEditSubName} editable={!isEditing} />
+                  </View>
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.inputLabel}>Subject Code</Text>
+                    <TextInput style={styles.formInput} placeholder="e.g. CS201" placeholderTextColor={COLORS.textTertiary} autoCapitalize="characters" value={editSubCode} onChangeText={setEditSubCode} editable={!isEditing} />
+                  </View>
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.inputLabel}>Semester</Text>
+                    <TextInput style={styles.formInput} placeholder="e.g. 3" placeholderTextColor={COLORS.textTertiary} keyboardType="number-pad" maxLength={2} value={editSubSemester} onChangeText={setEditSubSemester} editable={!isEditing} />
+                  </View>
+                </ScrollView>
+
+                <View style={styles.formActions}>
+                  <TouchableOpacity style={styles.cancelBtn} onPress={() => setEditVisible(false)} disabled={isEditing}>
+                    <Text style={styles.cancelBtnText}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.saveBtn, !isEditFormValid && styles.saveBtnDisabled]}
+                    onPress={handleEditSubject}
+                    disabled={!isEditFormValid || isEditing}
+                    activeOpacity={0.85}
+                  >
+                    {isEditing
+                      ? <ActivityIndicator color={COLORS.white} size="small" />
+                      : <Text style={styles.saveBtnText}>Save Changes</Text>
                     }
                   </TouchableOpacity>
                 </View>
