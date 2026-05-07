@@ -127,3 +127,47 @@ const request = async <T>(
  */
 export const login = (email: string, password: string): Promise<LoginResponse> =>
   request<LoginResponse>('POST', '/auth/login', { email, password });
+
+// --- Staff Endpoints ---
+
+export interface StaffMember {
+  id: string;
+  name: string;
+  email: string;
+  isTutor: boolean;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface StaffListResponse {
+  data: StaffMember[];
+  meta: {
+    total: number;
+    page: number;
+    limit: number;
+  };
+}
+
+/**
+ * GET /staff?page=1&limit=10&search=...
+ * Returns a paginated list of staff members.
+ */
+export const getStaff = (
+  page: number,
+  limit: number,
+  search: string,
+): Promise<StaffListResponse> => {
+  const params = new URLSearchParams({
+    page: String(page),
+    limit: String(limit),
+    ...(search.trim() ? { search: search.trim() } : {}),
+  });
+  return request<StaffListResponse>('GET', `/staff?${params.toString()}`, undefined, true);
+};
+
+/**
+ * POST /staff
+ * Creates a new staff member. isTutor is always false on creation.
+ */
+export const createStaff = (name: string, email: string): Promise<StaffMember> =>
+  request<StaffMember>('POST', '/staff', { name, email, isTutor: false }, true);

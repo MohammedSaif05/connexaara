@@ -13,13 +13,14 @@ import {
   Keyboard,
   ImageBackground,
   Image,
-  ActivityIndicator,
 } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { login, ApiError } from '../services/api';
 import { saveAuthData } from '../services/storage';
 import type { UserRole } from '../services/storage';
+import Loader from '../components/Loader';
+import { useToast } from '../components/ToastContext';
 
 const COLORS = {
   background: '#FFFFFF',
@@ -78,6 +79,7 @@ const getDashboardRoute = (
 
 const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
   const [isLoading, setIsLoading] = useState(false);
+  const { showToast } = useToast();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -112,9 +114,13 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
         departmentName: response.user.department?.name ?? '',
       });
 
-      // Navigate to the correct dashboard and wipe the auth stack
+      // Navigate to the correct dashboard immediately and wipe the auth stack
       const route = getDashboardRoute(response.user.role, response.user.isTutor);
       navigation.reset({ index: 0, routes: [{ name: route }] });
+
+      // Show success toast after navigation (ToastContext is global, renders on new screen)
+      const lastName = response.user.name.trim().split(' ').pop() ?? response.user.name;
+      showToast(`Welcome back, ${lastName}!`, 'success');
 
     } catch (err) {
       if (err instanceof ApiError) {
@@ -220,11 +226,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
                   style={[styles.signInButton, isLoading && styles.signInButtonDisabled]}
                   onPress={handleSignIn}
                   disabled={isLoading}>
-                  {isLoading ? (
-                    <ActivityIndicator color={COLORS.white} size="small" />
-                  ) : (
-                    <Text style={styles.signInButtonText}>Sign In</Text>
-                  )}
+                  <Text style={styles.signInButtonText}>Sign In</Text>
                 </TouchableOpacity>
               </View>
 
@@ -232,6 +234,8 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
           </TouchableWithoutFeedback>
         </KeyboardAvoidingView>
       </SafeAreaView>
+      {/* Full-screen jumping dots loader overlay */}
+      <Loader visible={isLoading} />
     </ImageBackground>
   );
 };
