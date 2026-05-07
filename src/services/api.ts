@@ -28,6 +28,7 @@ export interface LoginResponse {
     isActive: boolean;
     mustChangePassword: boolean;
     createdAt: string;
+    batchId: string | null;
     department: {
       id: string;
       name: string;
@@ -339,3 +340,109 @@ export const promoteBatch = (id: string): Promise<Batch> =>
  */
 export const passoutBatch = (id: string): Promise<{ message: string }> =>
   request<{ message: string }>('PATCH', `/batches/${id}/passout`, undefined, true);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Student API
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface StudentListItem {
+  id: string;
+  name: string;
+  registerNumber: string;
+  isActive: boolean;
+}
+
+export interface StudentListResponse {
+  data: StudentListItem[];
+  meta: { total: number; page: number; limit: number };
+}
+
+export interface StudentDetail {
+  id: string;
+  registerNumber: string;
+  batchId: string;
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    isActive: boolean;
+    mustChangePassword: boolean;
+    createdAt: string;
+  };
+  batch: {
+    id: string;
+    name: string;
+    startYear: number;
+    endYear: number;
+    currentSemester: number;
+    isPassedOut: boolean;
+  };
+  _count: { odRequests: number };
+}
+
+/**
+ * GET /students?batchId=&page=1&limit=10&search=&isActive=true
+ * Returns a paginated list of students for the tutor's batch.
+ */
+export const getStudents = (
+  batchId: string,
+  page: number,
+  limit: number,
+  search: string,
+  isActive: boolean = true,
+): Promise<StudentListResponse> => {
+  const params = new URLSearchParams({
+    batchId,
+    page: String(page),
+    limit: String(limit),
+    isActive: String(isActive),
+    ...(search.trim() ? { search: search.trim() } : {}),
+  });
+  return request<StudentListResponse>('GET', `/students?${params.toString()}`, undefined, true);
+};
+
+/**
+ * POST /students
+ * Creates a new student.
+ */
+export const createStudent = (payload: {
+  name: string;
+  email: string;
+  registerNumber: string;
+  dob: string;
+  batchId: string;
+}): Promise<{ id: string; name: string; email: string; student: { id: string; registerNumber: string; batchId: string } }> =>
+  request('POST', '/students', payload, true);
+
+/**
+ * GET /students/:id
+ * Returns full detail of a single student.
+ */
+export const getStudentById = (id: string): Promise<StudentDetail> =>
+  request<StudentDetail>('GET', `/students/${id}`, undefined, true);
+
+/**
+ * PATCH /students/:id
+ * Updates an existing student.
+ */
+export const updateStudent = (id: string, payload: {
+  name?: string;
+  email?: string;
+  registerNumber?: string;
+  dob?: string;
+}): Promise<StudentDetail> =>
+  request<StudentDetail>('PATCH', `/students/${id}`, payload, true);
+
+/**
+ * PATCH /students/:id/deactivate
+ * Deactivates a student.
+ */
+export const deactivateStudent = (id: string): Promise<{ message: string }> =>
+  request<{ message: string }>('PATCH', `/students/${id}/deactivate`, undefined, true);
+
+/**
+ * PATCH /students/:id/activate
+ * Activates a student.
+ */
+export const activateStudent = (id: string): Promise<{ message: string }> =>
+  request<{ message: string }>('PATCH', `/students/${id}/activate`, undefined, true);

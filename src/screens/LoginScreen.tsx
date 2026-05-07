@@ -112,6 +112,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
         name: response.user.name,
         email: response.user.email,
         departmentName: response.user.department?.name ?? '',
+        batchId: response.user.batchId ?? null,
       });
 
       // Navigate to the correct dashboard immediately and wipe the auth stack

@@ -18,6 +18,7 @@ const KEYS = {
   USER_NAME: '@connexaara/user_name',
   USER_EMAIL: '@connexaara/user_email',
   DEPT_NAME: '@connexaara/dept_name',
+  BATCH_ID: '@connexaara/batch_id',
 } as const;
 
 // --- Types ---
@@ -31,6 +32,7 @@ export interface StoredAuthData {
   name: string;
   email: string;
   departmentName: string;
+  batchId: string | null;
 }
 
 // --- Terms Agreement ---
@@ -54,6 +56,11 @@ export const saveAuthData = async (data: StoredAuthData): Promise<void> => {
   await AsyncStorage.setItem(KEYS.USER_NAME, data.name);
   await AsyncStorage.setItem(KEYS.USER_EMAIL, data.email);
   await AsyncStorage.setItem(KEYS.DEPT_NAME, data.departmentName);
+  if (data.batchId) {
+    await AsyncStorage.setItem(KEYS.BATCH_ID, data.batchId);
+  } else {
+    await AsyncStorage.removeItem(KEYS.BATCH_ID);
+  }
 };
 
 export const getAuthData = async (): Promise<StoredAuthData | null> => {
@@ -64,6 +71,7 @@ export const getAuthData = async (): Promise<StoredAuthData | null> => {
   const name = await AsyncStorage.getItem(KEYS.USER_NAME);
   const email = await AsyncStorage.getItem(KEYS.USER_EMAIL);
   const departmentName = await AsyncStorage.getItem(KEYS.DEPT_NAME);
+  const batchId = await AsyncStorage.getItem(KEYS.BATCH_ID);
 
   if (!token || !role || !userId) return null;
 
@@ -75,6 +83,7 @@ export const getAuthData = async (): Promise<StoredAuthData | null> => {
     name: name ?? '',
     email: email ?? '',
     departmentName: departmentName ?? '',
+    batchId: batchId ?? null,
   };
 };
 
