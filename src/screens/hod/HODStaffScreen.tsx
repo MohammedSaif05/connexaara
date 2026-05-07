@@ -18,6 +18,8 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useToast } from '../../components/ToastContext';
 import { getStaff, createStaff, StaffMember, ApiError } from '../../services/api';
+import SearchIcon from '../../assets/svg/search.svg';
+import ViewIcon from '../../assets/svg/view.svg';
 
 const COLORS = {
   background: '#F0F2F8',
@@ -65,6 +67,7 @@ const HODStaffScreen = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const [isTyping, setIsTyping] = useState(false); // true while debounce is pending
 
   // --- Add Staff Modal State ---
   const [modalVisible, setModalVisible] = useState(false);
@@ -117,8 +120,14 @@ const HODStaffScreen = () => {
   // Search with 500ms debounce
   const handleSearchChange = (text: string) => {
     setSearchQuery(text);
+    if (text.trim()) {
+      setIsTyping(true); // Show 'Searching for...' immediately
+    } else {
+      setIsTyping(false);
+    }
     if (searchTimer.current) clearTimeout(searchTimer.current);
     searchTimer.current = setTimeout(() => {
+      setIsTyping(false); // Debounce fired, API is now fetching
       fetchStaff(1, text, true);
     }, 500);
   };
@@ -189,10 +198,8 @@ const HODStaffScreen = () => {
         </View>
 
         {/* Action */}
-        <TouchableOpacity style={styles.moreBtn} activeOpacity={0.6}>
-          <View style={styles.moreDot} />
-          <View style={styles.moreDot} />
-          <View style={styles.moreDot} />
+        <TouchableOpacity style={styles.viewBtn} activeOpacity={0.7}>
+          <ViewIcon width={20} height={20} color={COLORS.primary} />
         </TouchableOpacity>
       </View>
     );
@@ -209,10 +216,7 @@ const HODStaffScreen = () => {
     if (hasMore && !isListLoading) {
       return (
         <TouchableOpacity style={styles.loadMoreBtn} onPress={handleLoadMore} activeOpacity={0.8}>
-          <Text style={styles.loadMoreText}>Load 10 More</Text>
-          <Text style={styles.loadMoreCount}>
-            {staffList.length} of {totalCount}
-          </Text>
+          <Text style={styles.loadMoreText}>Load More</Text>
         </TouchableOpacity>
       );
     }
@@ -254,7 +258,11 @@ const HODStaffScreen = () => {
       {/* Search Bar */}
       <View style={styles.searchWrapper}>
         <View style={[styles.searchContainer, isSearchFocused && styles.searchContainerFocused]}>
-          <Text style={styles.searchIcon}>🔍</Text>
+          <SearchIcon
+            width={18}
+            height={18}
+            stroke={isSearchFocused ? COLORS.primary : COLORS.textSecondary}
+          />
           <TextInput
             style={styles.searchInput}
             placeholder="Search by name or email..."
@@ -267,13 +275,23 @@ const HODStaffScreen = () => {
           />
           {searchQuery.length > 0 && (
             <TouchableOpacity
-              onPress={() => handleSearchChange('')}
+              onPress={() => { handleSearchChange(''); setIsTyping(false); }}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
               <Text style={styles.clearIcon}>✕</Text>
             </TouchableOpacity>
           )}
         </View>
+
+        {/* Searching indicator — shows between keypress and API response */}
+        {isTyping && searchQuery.trim().length > 0 && (
+          <View style={styles.searchingBanner}>
+            <ActivityIndicator size="small" color={COLORS.primary} style={{ marginRight: 8 }} />
+            <Text style={styles.searchingText}>
+              Searching for <Text style={styles.searchingQuery}>"{searchQuery.trim()}"</Text>...
+            </Text>
+          </View>
+        )}
       </View>
 
       {/* Initial Loading State */}
@@ -468,6 +486,21 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 4,
   },
+  searchingBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+    paddingHorizontal: 4,
+  },
+  searchingText: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    fontWeight: '500',
+  },
+  searchingQuery: {
+    color: COLORS.primary,
+    fontWeight: '700',
+  },
   searchIcon: {
     fontSize: 16,
     marginRight: 10,
@@ -559,19 +592,11 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 0.2,
   },
-  moreBtn: {
+  viewBtn: {
     paddingLeft: 12,
     paddingVertical: 8,
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 4,
-  },
-  moreDot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: COLORS.textTertiary,
-    marginBottom: 3,
   },
 
   // --- Footer ---
@@ -590,19 +615,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: COLORS.primaryLight,
-    flexDirection: 'row',
-    gap: 12,
   },
   loadMoreText: {
     color: COLORS.primary,
     fontWeight: '700',
     fontSize: 14,
-  },
-  loadMoreCount: {
-    color: COLORS.primary,
-    fontSize: 12,
-    fontWeight: '500',
-    opacity: 0.7,
   },
   allLoadedBanner: {
     flexDirection: 'row',
