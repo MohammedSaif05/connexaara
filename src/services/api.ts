@@ -255,3 +255,87 @@ export const getBatches = (
   });
   return request<BatchListResponse>('GET', `/batches?${params.toString()}`, undefined, true);
 };
+
+export interface SubjectAssignment {
+  id: string;
+  subject: { id: string; name: string; subjectCode: string };
+  staff: { id: string; name: string; email: string } | null;
+}
+
+export interface StaffBatchMapping {
+  id: string;
+  roleType: string;
+  staff: { id: string; name: string; email: string };
+}
+
+export interface BatchDetail {
+  id: string;
+  name: string;
+  startYear: number;
+  endYear: number;
+  currentSemester: number;
+  isPassedOut: boolean;
+  tutorId: string | null;
+  tutor: BatchTutor | null;
+  department: { id: string; name: string } | null;
+  _count: { students: number; subjectAssignments: number };
+  subjectAssignments: SubjectAssignment[];
+  staffBatchMappings: StaffBatchMapping[];
+}
+
+export interface AvailableTutor {
+  id: string;
+  name: string;
+  email: string;
+  isTutor: boolean;
+}
+
+/**
+ * POST /batches
+ * Creates a new batch.
+ */
+export const createBatch = (payload: {
+  name: string;
+  startYear: number;
+  endYear: number;
+  currentSemester: number;
+}): Promise<Batch> =>
+  request<Batch>('POST', '/batches', payload, true);
+
+/**
+ * GET /batches/:id
+ * Returns full batch detail including tutor, department, subjects, mappings.
+ */
+export const getBatchById = (id: string): Promise<BatchDetail> =>
+  request<BatchDetail>('GET', `/batches/${id}`, undefined, true);
+
+/**
+ * GET /batches/available-tutors
+ * Returns active staff not currently tutoring any active batch.
+ */
+export const getAvailableTutors = (): Promise<AvailableTutor[]> =>
+  request<AvailableTutor[]>('GET', '/batches/available-tutors', undefined, true);
+
+/**
+ * PATCH /batches/:id/assign-tutor
+ * Assigns a staff member as the tutor for the batch.
+ */
+export const assignTutor = (
+  batchId: string,
+  staffId: string,
+): Promise<{ message: string }> =>
+  request<{ message: string }>('PATCH', `/batches/${batchId}/assign-tutor`, { staffId }, true);
+
+/**
+ * PATCH /batches/:id/promote
+ * Increments currentSemester by 1. Errors at final semester.
+ */
+export const promoteBatch = (id: string): Promise<Batch> =>
+  request<Batch>('PATCH', `/batches/${id}/promote`, undefined, true);
+
+/**
+ * PATCH /batches/:id/passout
+ * Marks a batch as passed out (irreversible).
+ */
+export const passoutBatch = (id: string): Promise<{ message: string }> =>
+  request<{ message: string }>('PATCH', `/batches/${id}/passout`, undefined, true);
