@@ -149,17 +149,19 @@ export interface StaffListResponse {
 }
 
 /**
- * GET /staff?page=1&limit=10&search=...
+ * GET /staff?page=1&limit=10&search=...&isActive=true|false
  * Returns a paginated list of staff members.
  */
 export const getStaff = (
   page: number,
   limit: number,
   search: string,
+  isActive: boolean = true,
 ): Promise<StaffListResponse> => {
   const params = new URLSearchParams({
     page: String(page),
     limit: String(limit),
+    isActive: String(isActive),
     ...(search.trim() ? { search: search.trim() } : {}),
   });
   return request<StaffListResponse>('GET', `/staff?${params.toString()}`, undefined, true);
@@ -171,3 +173,39 @@ export const getStaff = (
  */
 export const createStaff = (name: string, email: string): Promise<StaffMember> =>
   request<StaffMember>('POST', '/staff', { name, email, isTutor: false }, true);
+
+export interface StaffDetail extends StaffMember {
+  mustChangePassword: boolean;
+  department: { id: string; name: string } | null;
+}
+
+/**
+ * GET /staff/:id
+ * Fetches full details for a single staff member.
+ */
+export const getStaffById = (id: string): Promise<StaffDetail> =>
+  request<StaffDetail>('GET', `/staff/${id}`, undefined, true);
+
+/**
+ * PATCH /staff/:id
+ * Updates an existing staff member's name, email, and/or isTutor.
+ */
+export const updateStaff = (
+  id: string,
+  payload: { name: string; email: string; isTutor: boolean },
+): Promise<StaffDetail> =>
+  request<StaffDetail>('PATCH', `/staff/${id}`, payload, true);
+
+/**
+ * PATCH /staff/:id/deactivate
+ * Deactivates a staff member (sets isActive to false).
+ */
+export const deactivateStaff = (id: string): Promise<{ message: string }> =>
+  request<{ message: string }>('PATCH', `/staff/${id}/deactivate`, undefined, true);
+
+/**
+ * PATCH /staff/:id/activate
+ * Re-activates a previously deactivated staff member.
+ */
+export const activateStaff = (id: string): Promise<{ message: string }> =>
+  request<{ message: string }>('PATCH', `/staff/${id}/activate`, undefined, true);
