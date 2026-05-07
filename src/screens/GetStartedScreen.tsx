@@ -13,6 +13,7 @@ import LottieView from 'lottie-react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/AppNavigator';
+import { saveTermsAgreed } from '../services/storage';
 
 const { width } = Dimensions.get('window');
 
@@ -53,6 +54,12 @@ const GetStartedScreen: React.FC<GetStartedScreenProps> = ({ navigation }) => {
   const [agreed, setAgreed] = useState(false);
 
   const toggleAgreement = () => setAgreed(!agreed);
+
+  const handleGetStarted = async () => {
+    // Persist the agreement so the user never sees this screen again
+    await saveTermsAgreed();
+    navigation.navigate('Login');
+  };
 
   const handleTerms = () => {
     // Open terms link
@@ -146,7 +153,7 @@ const GetStartedScreen: React.FC<GetStartedScreenProps> = ({ navigation }) => {
               !agreed && styles.buttonDisabled,
             ]}
             disabled={!agreed}
-            onPress={() => navigation.navigate('Login')}>
+            onPress={handleGetStarted}>
             <Text style={styles.buttonText}>Get Started</Text>
           </TouchableOpacity>
         </View>

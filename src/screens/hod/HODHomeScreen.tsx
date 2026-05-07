@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, StatusBar, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from '@react-native-community/blur';
 import NotificationIcon from '../../assets/svg/notification.svg';
+import { getAuthData } from '../../services/storage';
 
 const COLORS = {
   background: '#F5F7FA',
@@ -15,6 +16,17 @@ const COLORS = {
 
 const HODHomeScreen = () => {
   const insets = useSafeAreaInsets();
+  const [userName, setUserName] = useState('');
+  const [deptName, setDeptName] = useState('');
+
+  useEffect(() => {
+    getAuthData().then(data => {
+      if (data) {
+        setUserName(data.name);
+        setDeptName(data.departmentName);
+      }
+    });
+  }, []);
 
   return (
     <View style={styles.container}>
@@ -35,20 +47,20 @@ const HODHomeScreen = () => {
           />
           <View style={styles.headerContainer}>
             <View style={styles.userInfoContainer}>
-          <View style={styles.nameRow}>
-            <Text style={styles.greetingText}>Dr. Sarah Smith</Text>
-            <View style={styles.tagContainer}>
-              <Text style={styles.tagText}>HOD</Text>
+              <View style={styles.nameRow}>
+                <Text style={styles.greetingText} numberOfLines={1}>{userName || 'Loading...'}</Text>
+                <View style={styles.tagContainer}>
+                  <Text style={styles.tagText}>HOD</Text>
+                </View>
+              </View>
+              <Text style={styles.deptText}>{deptName || '—'}</Text>
             </View>
-          </View>
-          <Text style={styles.deptText}>Computer Science & Engineering</Text>
-        </View>
 
-          <TouchableOpacity style={styles.notificationBtn} activeOpacity={0.7}>
-            <NotificationIcon width={24} height={24} fill={COLORS.textPrimary} />
-            <View style={styles.notificationBadge} />
-          </TouchableOpacity>
-        </View>
+            <TouchableOpacity style={styles.notificationBtn} activeOpacity={0.7}>
+              <NotificationIcon width={24} height={24} fill={COLORS.textPrimary} />
+              <View style={styles.notificationBadge} />
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
 

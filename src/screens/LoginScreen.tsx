@@ -13,10 +13,13 @@ import {
   Keyboard,
   ImageBackground,
   Image,
+  ActivityIndicator,
 } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/AppNavigator';
-import Loader from '../components/Loader';
+import { login, ApiError } from '../services/api';
+import { saveAuthData } from '../services/storage';
+import type { UserRole } from '../services/storage';
 
 const COLORS = {
   background: '#FFFFFF',
@@ -24,10 +27,14 @@ const COLORS = {
   textSecondary: '#6B7280',
   inputBackground: '#F9FAFB',
   inputBorder: '#E5E7EB',
+  inputBorderError: '#EF4444',
   buttonPrimary: '#1B2A4A',
+  buttonDisabled: '#A0AABF',
   white: '#FFFFFF',
   teal: '#2EC4B6',
   purple: '#7B61FF',
+  error: '#EF4444',
+  errorBg: '#FEF2F2',
 };
 
 const TITLE_LETTERS = [
@@ -49,23 +56,82 @@ interface LoginScreenProps {
   navigation: LoginScreenNavigationProp;
 }
 
+/**
+ * Maps a user role (and isTutor flag) to the correct dashboard route name.
+ * STAFF (whether tutor or not) → TutorDashboard
+ */
+const getDashboardRoute = (
+  role: UserRole,
+  isTutor: boolean,
+): keyof RootStackParamList => {
+  switch (role) {
+    case 'HOD':
+      return 'HODDashboard';
+    case 'STAFF':
+      return 'TutorDashboard';
+    case 'STUDENT':
+      return 'StudentDashboard';
+    default:
+      return 'Login';
+  }
+};
+
 const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const handleSignIn = () => {
+  const handleSignIn = async () => {
     Keyboard.dismiss();
+
+    // Basic client-side validation
+    if (!email.trim()) {
+      setErrorMessage('Please enter your email address.');
+      return;
+    }
+    if (!password.trim()) {
+      setErrorMessage('Please enter your password.');
+      return;
+    }
+
+    setErrorMessage(null);
     setIsLoading(true);
 
-    // Simulate API call for login
-    setTimeout(() => {
-      setIsLoading(false);
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'HODDashboard' }],
+    try {
+      const response = await login(email.trim(), password);
+
+      // Persist auth data to local storage for session restoration
+      await saveAuthData({
+        token: response.accessToken,
+        role: response.user.role,
+        isTutor: response.user.isTutor,
+        userId: response.user.id,
+        name: response.user.name,
+        email: response.user.email,
+        departmentName: response.user.department?.name ?? '',
       });
-    }, 2500);
+
+      // Navigate to the correct dashboard and wipe the auth stack
+      const route = getDashboardRoute(response.user.role, response.user.isTutor);
+      navigation.reset({ index: 0, routes: [{ name: route }] });
+
+    } catch (err) {
+      if (err instanceof ApiError) {
+        if (err.statusCode === 401 || err.statusCode === 403) {
+          setErrorMessage('Invalid email or password. Please try again.');
+        } else if (err.statusCode === 0) {
+          // Network / timeout error from our api.ts
+          setErrorMessage(err.message);
+        } else {
+          setErrorMessage(err.message || 'Something went wrong. Please try again.');
+        }
+      } else {
+        setErrorMessage('An unexpected error occurred. Please try again.');
+      }
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -106,43 +172,65 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
               {/* Subtitle */}
               <Text style={styles.subtitle}>Login to your Account</Text>
 
+              {/* Inline Error Banner */}
+              {errorMessage && (
+                <View style={styles.errorBanner}>
+                  <Text style={styles.errorBannerText}>{errorMessage}</Text>
+                </View>
+              )}
+
               {/* Form */}
               <View style={styles.formContainer}>
-                <View style={styles.inputContainer}>
+                <View style={[
+                  styles.inputContainer,
+                  errorMessage && !password && styles.inputContainerError,
+                ]}>
                   <TextInput
                     style={styles.input}
                     placeholder="Email"
                     placeholderTextColor={COLORS.textSecondary}
                     keyboardType="email-address"
                     autoCapitalize="none"
+                    autoCorrect={false}
                     value={email}
-                    onChangeText={setEmail}
+                    onChangeText={(text) => { setEmail(text); setErrorMessage(null); }}
+                    editable={!isLoading}
                   />
                 </View>
 
-                <View style={styles.inputContainer}>
+                <View style={[
+                  styles.inputContainer,
+                  errorMessage && !password && styles.inputContainerError,
+                ]}>
                   <TextInput
                     style={styles.input}
                     placeholder="Password"
                     placeholderTextColor={COLORS.textSecondary}
                     secureTextEntry
                     value={password}
-                    onChangeText={setPassword}
+                    onChangeText={(text) => { setPassword(text); setErrorMessage(null); }}
+                    editable={!isLoading}
+                    onSubmitEditing={handleSignIn}
+                    returnKeyType="done"
                   />
                 </View>
 
                 <TouchableOpacity
                   activeOpacity={0.8}
-                  style={styles.signInButton}
-                  onPress={handleSignIn}>
-                  <Text style={styles.signInButtonText}>Sign In</Text>
+                  style={[styles.signInButton, isLoading && styles.signInButtonDisabled]}
+                  onPress={handleSignIn}
+                  disabled={isLoading}>
+                  {isLoading ? (
+                    <ActivityIndicator color={COLORS.white} size="small" />
+                  ) : (
+                    <Text style={styles.signInButtonText}>Sign In</Text>
+                  )}
                 </TouchableOpacity>
               </View>
 
             </View>
           </TouchableWithoutFeedback>
         </KeyboardAvoidingView>
-        <Loader visible={isLoading} />
       </SafeAreaView>
     </ImageBackground>
   );
@@ -231,6 +319,27 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     letterSpacing: 0.5,
+  },
+  signInButtonDisabled: {
+    opacity: 0.7,
+  },
+  errorBanner: {
+    backgroundColor: COLORS.errorBg,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: COLORS.error,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginBottom: 16,
+  },
+  errorBannerText: {
+    color: COLORS.error,
+    fontSize: 14,
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  inputContainerError: {
+    borderColor: COLORS.inputBorderError,
   },
 });
 

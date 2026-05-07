@@ -10,6 +10,8 @@ import {
 } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/AppNavigator';
+import { getTermsAgreed, getAuthData, isTokenExpired } from '../services/storage';
+import type { UserRole } from '../services/storage';
 
 const { width } = Dimensions.get('window');
 
@@ -50,6 +52,25 @@ interface SplashScreenProps {
   navigation: SplashScreenNavigationProp;
 }
 
+/**
+ * Maps a user role (and isTutor flag) to the correct navigator name.
+ */
+const getDashboardRoute = (
+  role: UserRole,
+  isTutor: boolean,
+): keyof RootStackParamList => {
+  switch (role) {
+    case 'HOD':
+      return 'HODDashboard';
+    case 'STAFF':
+      return 'TutorDashboard';
+    case 'STUDENT':
+      return 'StudentDashboard';
+    default:
+      return 'Login';
+  }
+};
+
 const SplashScreen: React.FC<SplashScreenProps> = ({ navigation }) => {
   // Logo animation
   const logoScale = useRef(new Animated.Value(0.3)).current;
@@ -67,6 +88,37 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ navigation }) => {
 
   // Fade out everything at the end
   const fadeOut = useRef(new Animated.Value(1)).current;
+
+  /**
+   * Determines where to navigate after the splash animation.
+   * Priority:
+   *   1. Valid stored token → Dashboard (role-based)
+   *   2. Terms not agreed → GetStarted
+   *   3. Terms agreed, no token → Login
+   */
+  const resolveNavigation = async (): Promise<void> => {
+    try {
+      const authData = await getAuthData();
+
+      if (authData && !isTokenExpired(authData.token)) {
+        // User has a valid unexpired session — go straight to their dashboard
+        const route = getDashboardRoute(authData.role, authData.isTutor);
+        navigation.reset({ index: 0, routes: [{ name: route }] });
+        return;
+      }
+
+      // Token is expired or missing — check if user has agreed to terms
+      const termsAgreed = await getTermsAgreed();
+      if (!termsAgreed) {
+        navigation.replace('GetStarted');
+      } else {
+        navigation.replace('Login');
+      }
+    } catch {
+      // On any storage error, fall back to GetStarted safely
+      navigation.replace('GetStarted');
+    }
+  };
 
   useEffect(() => {
     // Phase 1: Logo appears with scale + fade (0ms - 800ms)
@@ -127,7 +179,7 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ navigation }) => {
       Animated.delay(800),
       fadeOutAnimation,
     ]).start(() => {
-      navigation.replace('GetStarted');
+      resolveNavigation();
     });
   }, []);
 

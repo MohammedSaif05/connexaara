@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, StatusBar, TouchableOpacity, ScrollView, Modal } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from '@react-native-community/blur';
 import NotificationIcon from '../../assets/svg/notification.svg';
+import { getAuthData } from '../../services/storage';
 
 const COLORS = {
   background: '#F5F7FA',
@@ -60,6 +61,17 @@ const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'
 const StudentHomeScreen = () => {
   const insets = useSafeAreaInsets();
   const [timetableModalVisible, setTimetableModalVisible] = useState(false);
+  const [userName, setUserName] = useState('');
+  const [deptName, setDeptName] = useState('');
+
+  useEffect(() => {
+    getAuthData().then(data => {
+      if (data) {
+        setUserName(data.name);
+        setDeptName(data.departmentName);
+      }
+    });
+  }, []);
 
   // Mocking current active period for the widget
   const currentPeriod = MOCK_STUDENT_TIMETABLE_ENTRIES[0];
@@ -87,12 +99,12 @@ const StudentHomeScreen = () => {
             <View style={styles.headerContainer}>
               <View style={styles.userInfoContainer}>
                 <View style={styles.nameRow}>
-                  <Text style={styles.greetingText}>Alice Walker</Text>
-                  <View style={styles.tagContainer}>
-                    <Text style={styles.tagText}>STUDENT</Text>
-                  </View>
+                <Text style={styles.greetingText} numberOfLines={1}>{userName || 'Loading...'}</Text>
+                <View style={styles.tagContainer}>
+                  <Text style={styles.tagText}>STUDENT</Text>
                 </View>
-                <Text style={styles.deptText}>BTech CS • Semester 3</Text>
+              </View>
+              <Text style={styles.deptText}>{deptName || '—'}</Text>
               </View>
 
               <TouchableOpacity style={styles.notificationBtn} activeOpacity={0.7}>
