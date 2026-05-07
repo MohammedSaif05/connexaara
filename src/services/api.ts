@@ -209,3 +209,49 @@ export const deactivateStaff = (id: string): Promise<{ message: string }> =>
  */
 export const activateStaff = (id: string): Promise<{ message: string }> =>
   request<{ message: string }>('PATCH', `/staff/${id}/activate`, undefined, true);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Batch API
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface BatchTutor {
+  id: string;
+  name: string;
+  email: string;
+}
+
+export interface Batch {
+  id: string;
+  name: string;
+  startYear: number;
+  endYear: number;
+  currentSemester: number;
+  isPassedOut: boolean;
+  tutorId: string | null;
+  tutor: BatchTutor | null;
+  _count: { students: number };
+}
+
+export interface BatchListResponse {
+  data: Batch[];
+  meta: { total: number; page: number; limit: number };
+}
+
+/**
+ * GET /batches?page=1&limit=10&search=...&isPassedOut=false|true
+ * Returns a paginated list of batches.
+ */
+export const getBatches = (
+  page: number,
+  limit: number,
+  search: string,
+  isPassedOut: boolean,
+): Promise<BatchListResponse> => {
+  const params = new URLSearchParams({
+    page: String(page),
+    limit: String(limit),
+    isPassedOut: String(isPassedOut),
+    ...(search.trim() ? { search: search.trim() } : {}),
+  });
+  return request<BatchListResponse>('GET', `/batches?${params.toString()}`, undefined, true);
+};
