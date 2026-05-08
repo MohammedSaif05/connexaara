@@ -399,10 +399,10 @@ export const getStudents = (
   isActive: boolean = true,
 ): Promise<StudentListResponse> => {
   const params = new URLSearchParams({
-    batchId,
     page: String(page),
     limit: String(limit),
     isActive: String(isActive),
+    ...(batchId ? { batchId } : {}),
     ...(search.trim() ? { search: search.trim() } : {}),
   });
   return request<StudentListResponse>('GET', `/students?${params.toString()}`, undefined, true);

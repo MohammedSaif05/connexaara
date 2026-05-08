@@ -17,6 +17,7 @@ import {
   ScrollView,
   Switch,
 } from 'react-native';
+import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useToast } from '../../components/ToastContext';
 import {
@@ -27,7 +28,6 @@ import {
   StudentListItem,
   ApiError,
 } from '../../services/api';
-import { getAuthData } from '../../services/storage';
 import NotFoundIcon from '../../assets/svg/not-found.svg';
 import SearchIcon from '../../assets/svg/search.svg';
 
@@ -77,22 +77,19 @@ const StudentOdsScreen = () => {
   const [newSubject, setNewSubject] = useState('');
   const [newDescription, setNewDescription] = useState('');
   const [isGroup, setIsGroup] = useState(false);
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  const [startDate, setStartDate] = useState<Date>(new Date());
+  const [endDate, setEndDate] = useState<Date>(new Date());
   const [isCreating, setIsCreating] = useState(false);
+
+  // Date picker state
+  const [showStartPicker, setShowStartPicker] = useState(false);
+  const [showEndPicker, setShowEndPicker] = useState(false);
 
   // Group student picker
   const [batchStudents, setBatchStudents] = useState<StudentListItem[]>([]);
   const [selectedStudentIds, setSelectedStudentIds] = useState<Set<string>>(new Set());
   const [studentSearch, setStudentSearch] = useState('');
   const [loadingStudents, setLoadingStudents] = useState(false);
-  const [batchId, setBatchId] = useState<string | null>(null);
-
-  useEffect(() => {
-    getAuthData().then(data => {
-      if (data?.batchId) setBatchId(data.batchId);
-    });
-  }, []);
 
   const fetchOds = useCallback(async (silent = false) => {
     if (!silent) setIsLoading(true);
@@ -114,14 +111,13 @@ const StudentOdsScreen = () => {
   }, [showToast]);
 
   useEffect(() => { fetchOds(); }, [fetchOds]);
-
   const handleRefresh = () => { setIsRefreshing(true); fetchOds(true); };
 
   const fetchBatchStudents = async () => {
-    if (!batchId) return;
     setLoadingStudents(true);
     try {
-      const res = await getStudents(batchId, 1, 200, '', true);
+      // Student role: backend auto-resolves batchId, just pass empty string
+      const res = await getStudents('', 1, 200, '', true);
       setBatchStudents(res.data);
     } catch {
       showToast('Failed to load batch students', 'error');
@@ -134,8 +130,8 @@ const StudentOdsScreen = () => {
     setNewSubject('');
     setNewDescription('');
     setIsGroup(false);
-    setStartDate('');
-    setEndDate('');
+    setStartDate(new Date());
+    setEndDate(new Date());
     setSelectedStudentIds(new Set());
     setStudentSearch('');
     setCreateVisible(true);
@@ -157,11 +153,24 @@ const StudentOdsScreen = () => {
     });
   };
 
+  const onStartDateChange = (_event: DateTimePickerEvent, selectedDate?: Date) => {
+    setShowStartPicker(Platform.OS === 'ios');
+    if (selectedDate) {
+      setStartDate(selectedDate);
+      // Auto-adjust endDate if it's before the new startDate
+      if (selectedDate > endDate) setEndDate(selectedDate);
+    }
+  };
+
+  const onEndDateChange = (_event: DateTimePickerEvent, selectedDate?: Date) => {
+    setShowEndPicker(Platform.OS === 'ios');
+    if (selectedDate) setEndDate(selectedDate);
+  };
+
   const handleCreate = async () => {
     if (!newSubject.trim()) { showToast('Please enter a subject/title', 'error'); return; }
     if (!newDescription.trim()) { showToast('Please enter a description', 'error'); return; }
-    if (!startDate.trim()) { showToast('Please enter a start date', 'error'); return; }
-    if (!endDate.trim()) { showToast('Please enter an end date', 'error'); return; }
+    if (endDate < startDate) { showToast('End date must be after start date', 'error'); return; }
     if (isGroup && selectedStudentIds.size === 0) { showToast('Select at least one participant', 'error'); return; }
 
     setIsCreating(true);
@@ -170,8 +179,8 @@ const StudentOdsScreen = () => {
         subject: newSubject.trim(),
         description: newDescription.trim(),
         isGroup,
-        startDate: new Date(startDate).toISOString(),
-        endDate: new Date(endDate).toISOString(),
+        startDate: startDate.toISOString(),
+        endDate: endDate.toISOString(),
         participantIds: isGroup ? Array.from(selectedStudentIds) : undefined,
       });
       showToast('OD request submitted successfully!', 'success');
@@ -184,10 +193,9 @@ const StudentOdsScreen = () => {
     }
   };
 
-  const formatDate = (dateStr: string) => {
-    const d = new Date(dateStr);
-    return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
-  };
+  const formatDate = (dateStr: string) => new Date(dateStr).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+
+  const formatPickerDate = (date: Date) => date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 
   const filteredStudents = batchStudents.filter(s =>
     s.name.toLowerCase().includes(studentSearch.toLowerCase()) ||
@@ -215,12 +223,10 @@ const StudentOdsScreen = () => {
         <Text style={styles.cardTitle} numberOfLines={2}>{item.subject}</Text>
         <Text style={styles.cardDesc} numberOfLines={3}>{item.description}</Text>
 
-        {/* Date Range */}
         <View style={styles.dateRow}>
           <Text style={styles.dateLabel}>📅 {formatDate(item.startDate)} → {formatDate(item.endDate)}</Text>
         </View>
 
-        {/* Participants */}
         {item.isGroup && item.participants?.length > 0 && (
           <View style={styles.participantsWrap}>
             <Text style={styles.participantsLabel}>
@@ -229,7 +235,6 @@ const StudentOdsScreen = () => {
           </View>
         )}
 
-        {/* Approval trail */}
         {item.approvals?.length > 0 && (
           <View style={styles.approvalTrail}>
             {item.approvals.map((a, idx) => (
@@ -315,18 +320,43 @@ const StudentOdsScreen = () => {
                   <Text style={styles.inputLabel}>Description</Text>
                   <TextInput style={[styles.formInput, styles.textArea]} placeholder="Describe the event, venue, reason..." placeholderTextColor={COLORS.textTertiary} value={newDescription} onChangeText={setNewDescription} multiline numberOfLines={3} textAlignVertical="top" />
 
-                  {/* Date Range */}
+                  {/* Date Pickers */}
                   <View style={styles.dateInputRow}>
                     <View style={{ flex: 1 }}>
                       <Text style={styles.inputLabel}>Start Date</Text>
-                      <TextInput style={styles.formInput} placeholder="YYYY-MM-DD" placeholderTextColor={COLORS.textTertiary} value={startDate} onChangeText={setStartDate} />
+                      <TouchableOpacity style={styles.datePickerBtn} onPress={() => setShowStartPicker(true)} activeOpacity={0.7}>
+                        <Text style={styles.datePickerIcon}>📅</Text>
+                        <Text style={styles.datePickerText}>{formatPickerDate(startDate)}</Text>
+                      </TouchableOpacity>
                     </View>
                     <View style={{ width: 12 }} />
                     <View style={{ flex: 1 }}>
                       <Text style={styles.inputLabel}>End Date</Text>
-                      <TextInput style={styles.formInput} placeholder="YYYY-MM-DD" placeholderTextColor={COLORS.textTertiary} value={endDate} onChangeText={setEndDate} />
+                      <TouchableOpacity style={styles.datePickerBtn} onPress={() => setShowEndPicker(true)} activeOpacity={0.7}>
+                        <Text style={styles.datePickerIcon}>📅</Text>
+                        <Text style={styles.datePickerText}>{formatPickerDate(endDate)}</Text>
+                      </TouchableOpacity>
                     </View>
                   </View>
+
+                  {showStartPicker && (
+                    <DateTimePicker
+                      value={startDate}
+                      mode="date"
+                      display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                      minimumDate={new Date()}
+                      onChange={onStartDateChange}
+                    />
+                  )}
+                  {showEndPicker && (
+                    <DateTimePicker
+                      value={endDate}
+                      mode="date"
+                      display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                      minimumDate={startDate}
+                      onChange={onEndDateChange}
+                    />
+                  )}
 
                   {/* Individual / Group Toggle */}
                   <View style={styles.groupToggle}>
@@ -357,9 +387,7 @@ const StudentOdsScreen = () => {
                       </View>
 
                       {selectedStudentIds.size > 0 && (
-                        <Text style={styles.selectedCount}>
-                          {selectedStudentIds.size} selected
-                        </Text>
+                        <Text style={styles.selectedCount}>{selectedStudentIds.size} selected</Text>
                       )}
 
                       {loadingStudents ? (
@@ -446,7 +474,19 @@ const styles = StyleSheet.create({
   inputLabel: { fontSize: 13, fontWeight: '700', color: COLORS.textSecondary, marginBottom: 8, marginTop: 4, textTransform: 'uppercase', letterSpacing: 0.5 },
   formInput: { height: 48, backgroundColor: COLORS.background, borderRadius: 12, paddingHorizontal: 16, fontSize: 15, color: COLORS.textPrimary, borderWidth: 1, borderColor: COLORS.border, marginBottom: 16 },
   textArea: { height: 100, paddingTop: 14 },
-  dateInputRow: { flexDirection: 'row' },
+  dateInputRow: { flexDirection: 'row', marginBottom: 16 },
+  datePickerBtn: {
+    height: 48,
+    backgroundColor: COLORS.background,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  datePickerIcon: { fontSize: 16, marginRight: 8 },
+  datePickerText: { fontSize: 14, fontWeight: '600', color: COLORS.textPrimary },
   groupToggle: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: COLORS.background, borderRadius: 16, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: COLORS.border },
   groupLabel: { fontSize: 15, fontWeight: '700', color: COLORS.textPrimary },
   groupDesc: { fontSize: 12, color: COLORS.textSecondary, marginTop: 2 },
