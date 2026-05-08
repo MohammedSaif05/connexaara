@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from '@react-native-community/blur';
 import NotificationIcon from '../../assets/svg/notification.svg';
 import { getAuthData } from '../../services/storage';
-import { getTimetable, TimetableSlot } from '../../services/api';
+import { getTimetable, getSubjects, TimetableSlot, SubjectListItem } from '../../services/api';
 
 const COLORS = {
   background: '#F5F7FA',
@@ -31,6 +31,7 @@ const StudentHomeScreen = () => {
   const [currentSemester, setCurrentSemester] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [timetableSlots, setTimetableSlots] = useState<TimetableSlot[]>([]);
+  const [subjects, setSubjects] = useState<SubjectListItem[]>([]);
   const [currentSlot, setCurrentSlot] = useState<TimetableSlot | 'FREE' | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -46,17 +47,25 @@ const StudentHomeScreen = () => {
     });
   }, []);
 
-  const fetchTimetable = async (silent = false) => {
+  const fetchDashboardData = async (silent = false) => {
     if (!batchId || !currentSemester) return;
     if (!silent) setIsLoading(true);
     try {
-      const res = await getTimetable(batchId, currentSemester);
-      if (res && res.slots) {
-        setTimetableSlots(res.slots);
-        calculateCurrentSlot(res.slots);
+      const [ttRes, subRes] = await Promise.all([
+        getTimetable(batchId, currentSemester).catch(() => null),
+        getSubjects(1, 20, '', currentSemester).catch(() => null),
+      ]);
+      
+      if (ttRes && ttRes.slots) {
+        setTimetableSlots(ttRes.slots);
+        calculateCurrentSlot(ttRes.slots);
+      }
+      
+      if (subRes && subRes.data) {
+        setSubjects(subRes.data);
       }
     } catch (err) {
-      console.log('Failed to load timetable:', err);
+      console.log('Failed to load dashboard data:', err);
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
@@ -65,12 +74,12 @@ const StudentHomeScreen = () => {
 
   const handleRefresh = () => {
     setIsRefreshing(true);
-    fetchTimetable(true);
+    fetchDashboardData(true);
   };
 
   useEffect(() => {
-    fetchTimetable();
-    const intervalId = setInterval(() => fetchTimetable(true), 60000);
+    fetchDashboardData();
+    const intervalId = setInterval(() => fetchDashboardData(true), 60000);
     return () => clearInterval(intervalId);
   }, [batchId, currentSemester]);
 
@@ -237,6 +246,29 @@ const StudentHomeScreen = () => {
               <Text style={styles.actionSubtitle}>View your complete schedule</Text>
             </View>
           </TouchableOpacity>
+
+          <View style={{ marginTop: 8 }}>
+            <Text style={styles.sectionTitle}>My Subjects</Text>
+            {isLoading ? (
+              <ActivityIndicator style={{ marginVertical: 20 }} color={COLORS.blue} />
+            ) : subjects.length > 0 ? (
+              subjects.map(sub => (
+                <View key={sub.id} style={styles.subjectCard}>
+                  <View style={styles.subjectIconWrap}>
+                    <Text style={styles.subjectIconTxt}>{sub.name.charAt(0).toUpperCase()}</Text>
+                  </View>
+                  <View style={styles.subjectCardBody}>
+                    <Text style={styles.subjectCardName} numberOfLines={1}>{sub.name}</Text>
+                    <Text style={styles.subjectCardCode}>{sub.subjectCode} • Sem {sub.semester}</Text>
+                  </View>
+                </View>
+              ))
+            ) : (
+              <Text style={{ color: COLORS.textSecondary, textAlign: 'center', marginVertical: 20 }}>
+                No subjects assigned for this semester.
+              </Text>
+            )}
+          </View>
 
         </View>
       </ScrollView>
@@ -532,6 +564,51 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
   },
   
+  // Subject Card Styles
+  subjectCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.white,
+    borderRadius: 20,
+    padding: 16,
+    marginBottom: 12,
+    shadowColor: COLORS.blue,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: COLORS.blueLight,
+  },
+  subjectIconWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  subjectIconTxt: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: COLORS.blue,
+  },
+  subjectCardBody: {
+    flex: 1,
+  },
+  subjectCardName: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: COLORS.textPrimary,
+    marginBottom: 4,
+  },
+  subjectCardCode: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    fontWeight: '500',
+  },
+
   // Modal Styles (Ported)
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.4)', justifyContent: 'flex-end' },
   modalContentFullscreen: { backgroundColor: COLORS.white, flex: 1, paddingHorizontal: 24 },
