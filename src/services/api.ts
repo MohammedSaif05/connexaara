@@ -559,7 +559,7 @@ export interface TimetableSlot {
   day: 'MONDAY' | 'TUESDAY' | 'WEDNESDAY' | 'THURSDAY' | 'FRIDAY' | 'SATURDAY' | 'SUNDAY';
   startTime: string;
   endTime: string;
-  type: 'SUBJECT' | 'BREAK';
+  type: 'SUBJECT' | 'BREAK' | 'LUNCH';
   subject: {
     id: string;
     name: string;
@@ -577,9 +577,29 @@ export interface TimetableResponse {
   slots: TimetableSlot[];
 }
 
+export interface UpdateTimetablePayload {
+  batchId: string;
+  semester: number;
+  slots: {
+    day: 'MONDAY' | 'TUESDAY' | 'WEDNESDAY' | 'THURSDAY' | 'FRIDAY' | 'SATURDAY' | 'SUNDAY';
+    startTime: string;
+    endTime: string;
+    type: 'SUBJECT' | 'BREAK' | 'LUNCH';
+    subjectId?: string;
+    staffId?: string;
+  }[];
+}
+
 /**
  * GET /timetable/:batchId?semester={semester}
  * Fetches the timetable for a specific batch and semester.
  */
 export const getTimetable = (batchId: string, semester: number): Promise<TimetableResponse> =>
   request<TimetableResponse>('GET', `/timetable/${batchId}?semester=${semester}`, undefined, true);
+
+/**
+ * POST /timetable
+ * Fully replaces the timetable for a batch and semester.
+ */
+export const updateTimetable = (payload: UpdateTimetablePayload): Promise<{ message: string }> =>
+  request<{ message: string }>('POST', '/timetable', payload, true);
