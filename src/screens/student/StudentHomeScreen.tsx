@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, StatusBar, TouchableOpacity, ScrollView, Modal, RefreshControl, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, StatusBar, TouchableOpacity, ScrollView, Modal, RefreshControl, ActivityIndicator, TouchableWithoutFeedback } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from '@react-native-community/blur';
 import NotificationIcon from '../../assets/svg/notification.svg';
 import { getAuthData } from '../../services/storage';
-import { getTimetable, getSubjects, TimetableSlot, SubjectListItem } from '../../services/api';
+import { getTimetable, getSubjects, getSubjectById, TimetableSlot, SubjectListItem, SubjectDetail } from '../../services/api';
 
 const COLORS = {
   background: '#F5F7FA',
@@ -34,6 +34,11 @@ const StudentHomeScreen = () => {
   const [subjects, setSubjects] = useState<SubjectListItem[]>([]);
   const [currentSlot, setCurrentSlot] = useState<TimetableSlot | 'FREE' | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  
+  // Subject Detail Modal State
+  const [subjectDetailVisible, setSubjectDetailVisible] = useState(false);
+  const [isDetailLoading, setIsDetailLoading] = useState(false);
+  const [selectedSubject, setSelectedSubject] = useState<SubjectDetail | null>(null);
 
   useEffect(() => {
     getAuthData().then(data => {
@@ -75,6 +80,20 @@ const StudentHomeScreen = () => {
   const handleRefresh = () => {
     setIsRefreshing(true);
     fetchDashboardData(true);
+  };
+
+  const handleViewSubject = async (id: string) => {
+    setSubjectDetailVisible(true);
+    setIsDetailLoading(true);
+    setSelectedSubject(null);
+    try {
+      const detail = await getSubjectById(id);
+      setSelectedSubject(detail);
+    } catch (err) {
+      console.log('Failed to load subject details:', err);
+    } finally {
+      setIsDetailLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -253,7 +272,12 @@ const StudentHomeScreen = () => {
               <ActivityIndicator style={{ marginVertical: 20 }} color={COLORS.blue} />
             ) : subjects.length > 0 ? (
               subjects.map(sub => (
-                <View key={sub.id} style={styles.subjectCard}>
+                <TouchableOpacity 
+                  key={sub.id} 
+                  style={styles.subjectCard} 
+                  activeOpacity={0.7}
+                  onPress={() => handleViewSubject(sub.id)}
+                >
                   <View style={styles.subjectIconWrap}>
                     <Text style={styles.subjectIconTxt}>{sub.name.charAt(0).toUpperCase()}</Text>
                   </View>
@@ -261,7 +285,7 @@ const StudentHomeScreen = () => {
                     <Text style={styles.subjectCardName} numberOfLines={1}>{sub.name}</Text>
                     <Text style={styles.subjectCardCode}>{sub.subjectCode} • Sem {sub.semester}</Text>
                   </View>
-                </View>
+                </TouchableOpacity>
               ))
             ) : (
               <Text style={{ color: COLORS.textSecondary, textAlign: 'center', marginVertical: 20 }}>
@@ -330,6 +354,93 @@ const StudentHomeScreen = () => {
             </ScrollView>
           </View>
         </View>
+      </Modal>
+
+      {/* ========================================================= */}
+      {/* VIEW SUBJECT DETAILS MODAL */}
+      {/* ========================================================= */}
+      <Modal
+        visible={subjectDetailVisible}
+        transparent={true}
+        animationType="fade"
+        statusBarTranslucent={true}
+        onRequestClose={() => setSubjectDetailVisible(false)}
+      >
+        <TouchableWithoutFeedback onPress={() => setSubjectDetailVisible(false)}>
+          <View style={styles.modalOverlay}>
+            <TouchableWithoutFeedback>
+              <View style={[styles.modalContent, { maxHeight: '80%' }]}>
+                {isDetailLoading ? (
+                  <View style={{ padding: 40, alignItems: 'center' }}>
+                    <ActivityIndicator color={COLORS.blue} size="large" />
+                    <Text style={{ color: COLORS.textSecondary, marginTop: 12 }}>Loading Details...</Text>
+                  </View>
+                ) : selectedSubject ? (
+                  <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 16 }}>
+                    {/* Header */}
+                    <View style={styles.modalHeaderRow}>
+                      <Text style={styles.modalTitle}>Subject Details</Text>
+                      <TouchableOpacity style={styles.modalCloseBtn} onPress={() => setSubjectDetailVisible(false)}>
+                        <Text style={styles.modalCloseTxt}>✕</Text>
+                      </TouchableOpacity>
+                    </View>
+
+                    {/* Avatar */}
+                    <View style={{ alignItems: 'center', marginBottom: 16 }}>
+                      <View style={{ width: 64, height: 64, borderRadius: 20, backgroundColor: 'rgba(59, 130, 246, 0.1)', justifyContent: 'center', alignItems: 'center' }}>
+                        <Text style={{ fontSize: 28, fontWeight: 'bold', color: COLORS.blue }}>
+                          {selectedSubject.name.charAt(0).toUpperCase()}
+                        </Text>
+                      </View>
+                    </View>
+
+                    <Text style={styles.detailName}>{selectedSubject.name}</Text>
+                    <Text style={styles.detailSub}>{selectedSubject.subjectCode}</Text>
+
+                    {/* Info card */}
+                    <View style={styles.infoCard}>
+                      <View style={styles.infoRow}>
+                        <Text style={styles.infoLabel}>Semester</Text>
+                        <Text style={styles.infoValue}>Sem {selectedSubject.semester}</Text>
+                      </View>
+                      <View style={styles.infoRowDivider} />
+                      <View style={styles.infoRow}>
+                        <Text style={styles.infoLabel}>Department</Text>
+                        <Text style={styles.infoValue} numberOfLines={1}>{selectedSubject.department.name}</Text>
+                      </View>
+                    </View>
+
+                    {/* Assignments */}
+                    {selectedSubject.assignments.length > 0 && (
+                      <View style={{ marginTop: 16 }}>
+                        <Text style={styles.sectionTitle}>Teaching Staff</Text>
+                        {selectedSubject.assignments.filter(a => !batchName || a.batch.name === batchName).map((a) => (
+                          <View key={a.id} style={styles.infoCard}>
+                            <View style={styles.infoRow}>
+                              <Text style={styles.infoLabel}>Professor</Text>
+                              <Text style={styles.infoValue}>
+                                {a.staff ? a.staff.name : 'Not Assigned'}
+                              </Text>
+                            </View>
+                            {a.staff?.email && (
+                              <>
+                                <View style={styles.infoRowDivider} />
+                                <View style={styles.infoRow}>
+                                  <Text style={styles.infoLabel}>Email</Text>
+                                  <Text style={styles.infoValue} numberOfLines={1}>{a.staff.email}</Text>
+                                </View>
+                              </>
+                            )}
+                          </View>
+                        ))}
+                      </View>
+                    )}
+                  </ScrollView>
+                ) : null}
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
       </Modal>
 
     </View>
@@ -612,6 +723,33 @@ const styles = StyleSheet.create({
   // Modal Styles (Ported)
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.4)', justifyContent: 'flex-end' },
   modalContentFullscreen: { backgroundColor: COLORS.white, flex: 1, paddingHorizontal: 24 },
+  modalContent: {
+    backgroundColor: COLORS.white,
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 32,
+  },
+  modalHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  modalCloseBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: COLORS.inputBg,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalCloseTxt: {
+    fontSize: 16,
+    color: COLORS.textSecondary,
+    fontWeight: '700',
+  },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },
   modalTitle: { fontSize: 20, fontWeight: '800', color: COLORS.textPrimary },
   closeModalText: { fontSize: 20, fontWeight: '600', color: COLORS.textSecondary, padding: 4 },
@@ -625,6 +763,50 @@ const styles = StyleSheet.create({
   viewSubjectName: { fontSize: 15, fontWeight: '700', color: COLORS.blue, marginBottom: 4 },
   viewStaffName: { fontSize: 13, color: COLORS.textSecondary, fontWeight: '500' },
   viewBreakName: { fontSize: 15, fontWeight: '700', color: COLORS.orange, fontStyle: 'italic' },
+  // Modal Details Styles
+  detailName: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: COLORS.textPrimary,
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  detailSub: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  infoCard: {
+    backgroundColor: COLORS.inputBg,
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    marginBottom: 12,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  infoLabel: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    fontWeight: '500',
+  },
+  infoValue: {
+    fontSize: 14,
+    color: COLORS.textPrimary,
+    fontWeight: '600',
+    maxWidth: '60%',
+    textAlign: 'right',
+  },
+  infoRowDivider: {
+    height: 1,
+    backgroundColor: COLORS.border,
+    marginVertical: 12,
+  },
 });
 
 export default StudentHomeScreen;
