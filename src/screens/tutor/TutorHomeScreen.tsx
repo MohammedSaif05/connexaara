@@ -1,8 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, StatusBar, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, StatusBar, TouchableOpacity, ScrollView } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../../navigation/AppNavigator';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from '@react-native-community/blur';
 import NotificationIcon from '../../assets/svg/notification.svg';
+import TimetableIcon from '../../assets/svg/calendar.svg'; // Reusing an existing icon or fallback
 import { getAuthData } from '../../services/storage';
 
 const COLORS = {
@@ -18,6 +22,7 @@ const COLORS = {
 
 const TutorHomeScreen = () => {
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [userName, setUserName] = useState('');
   const [deptName, setDeptName] = useState('');
 
@@ -66,9 +71,23 @@ const TutorHomeScreen = () => {
         </View>
       </View>
 
-      <View style={styles.content}>
-        <Text style={styles.subtitle}>Welcome to the Tutor Dashboard</Text>
-      </View>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <Text style={styles.sectionTitle}>Quick Actions</Text>
+        
+        <TouchableOpacity 
+          style={styles.actionCard} 
+          activeOpacity={0.8}
+          onPress={() => navigation.navigate('TutorTimetable')}
+        >
+          <View style={[styles.iconContainer, { backgroundColor: COLORS.purpleLight }]}>
+            <TimetableIcon width={28} height={28} fill={COLORS.purple} />
+          </View>
+          <View style={styles.actionTextContainer}>
+            <Text style={styles.actionTitle}>Class Timetable</Text>
+            <Text style={styles.actionDesc}>View your batch schedule</Text>
+          </View>
+        </TouchableOpacity>
+      </ScrollView>
     </View>
   );
 };
@@ -186,14 +205,50 @@ const styles = StyleSheet.create({
     borderColor: COLORS.white,
   },
   content: {
-    flex: 1,
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    paddingBottom: 40,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: COLORS.textPrimary,
+    marginBottom: 16,
+  },
+  actionCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.white,
+    padding: 16,
+    borderRadius: 20,
+    shadowColor: COLORS.purple,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
+    marginBottom: 16,
+  },
+  iconContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
+    marginRight: 16,
   },
-  subtitle: {
-    fontSize: 16,
+  actionTextContainer: {
+    flex: 1,
+  },
+  actionTitle: {
+    fontSize: 17,
+    fontWeight: '700',
     color: COLORS.textPrimary,
-    opacity: 0.7,
+    marginBottom: 4,
+  },
+  actionDesc: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    fontWeight: '500',
   },
 });
 

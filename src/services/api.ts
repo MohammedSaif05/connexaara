@@ -550,3 +550,36 @@ export const updateSubject = (
   },
 ): Promise<SubjectListItem> =>
   request<SubjectListItem>('PATCH', `/subjects/${id}`, payload, true);
+
+// --- Timetable ---
+
+export interface TimetableSlot {
+  id: string;
+  semester: number;
+  day: 'MONDAY' | 'TUESDAY' | 'WEDNESDAY' | 'THURSDAY' | 'FRIDAY' | 'SATURDAY' | 'SUNDAY';
+  startTime: string;
+  endTime: string;
+  type: 'SUBJECT' | 'BREAK';
+  subject: {
+    id: string;
+    name: string;
+    subjectCode: string;
+  } | null;
+  staff: {
+    id: string;
+    name: string;
+  } | null;
+}
+
+export interface TimetableResponse {
+  batchId: string;
+  semester: number;
+  slots: TimetableSlot[];
+}
+
+/**
+ * GET /timetable/:batchId?semester={semester}
+ * Fetches the timetable for a specific batch and semester.
+ */
+export const getTimetable = (batchId: string, semester: number): Promise<TimetableResponse> =>
+  request<TimetableResponse>('GET', `/timetable/${batchId}?semester=${semester}`, undefined, true);

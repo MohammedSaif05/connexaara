@@ -7,6 +7,7 @@ import LoginScreen from '../screens/LoginScreen';
 import HODDashboardNavigator from './HODDashboardNavigator';
 import TutorDashboardNavigator from './TutorDashboardNavigator';
 import StudentDashboardNavigator from './StudentDashboardNavigator';
+import TutorTimetableScreen from '../screens/tutor/TutorTimetableScreen';
 
 export type RootStackParamList = {
   Splash: undefined;
@@ -14,6 +15,7 @@ export type RootStackParamList = {
   Login: undefined;
   HODDashboard: undefined;
   TutorDashboard: undefined;
+  TutorTimetable: undefined;
   StudentDashboard: undefined;
 };
 
@@ -33,6 +35,7 @@ export const AppNavigator = () => {
         <Stack.Screen name="Login" component={LoginScreen} />
         <Stack.Screen name="HODDashboard" component={HODDashboardNavigator} />
         <Stack.Screen name="TutorDashboard" component={TutorDashboardNavigator} />
+        <Stack.Screen name="TutorTimetable" component={TutorTimetableScreen} />
         <Stack.Screen name="StudentDashboard" component={StudentDashboardNavigator} />
       </Stack.Navigator>
     </NavigationContainer>
