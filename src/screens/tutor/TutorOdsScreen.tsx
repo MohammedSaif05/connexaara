@@ -132,7 +132,7 @@ const TutorOdsScreen = () => {
     const cfg = STATUS_CONFIG[item.status] || STATUS_CONFIG.PENDING_TUTOR;
     const isPending = item.status === 'PENDING_TUTOR';
     return (
-      <TouchableOpacity style={styles.card} activeOpacity={isPending ? 0.7 : 1} onPress={() => isPending && openActionModal(item)}>
+      <TouchableOpacity style={styles.card} activeOpacity={0.7} onPress={() => openActionModal(item)}>
         <View style={styles.cardHeader}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <View style={[styles.statusBadge, { backgroundColor: cfg.bg }]}>
@@ -184,6 +184,11 @@ const TutorOdsScreen = () => {
             </TouchableOpacity>
           </View>
         )}
+        {!isPending && (
+          <View style={styles.tapHint}>
+            <Text style={styles.tapHintTxt}>Tap to view details →</Text>
+          </View>
+        )}
       </TouchableOpacity>
     );
   };
@@ -224,7 +229,7 @@ const TutorOdsScreen = () => {
       )}
 
       {/* Review Modal */}
-      <Modal visible={actionVisible} transparent animationType="slide" onRequestClose={() => setActionVisible(false)}>
+      <Modal visible={actionVisible} transparent animationType="slide" statusBarTranslucent onRequestClose={() => setActionVisible(false)}>
           <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
             <TouchableWithoutFeedback onPress={() => Keyboard.dismiss()}>
               <View style={{ flex: 1 }} />
@@ -232,7 +237,7 @@ const TutorOdsScreen = () => {
               <View style={[styles.modalContent, { paddingBottom: Math.max(insets.bottom, 24) }]}>
                 <View style={styles.modalHandle} />
                 <View style={styles.modalHeaderRow}>
-                  <Text style={styles.modalTitle}>Review Request</Text>
+                  <Text style={styles.modalTitle}>{selectedOd?.status === 'PENDING_TUTOR' ? 'Review Request' : 'OD Details'}</Text>
                   <TouchableOpacity style={styles.modalCloseBtn} onPress={() => setActionVisible(false)}>
                     <Text style={styles.modalCloseTxt}>✕</Text>
                   </TouchableOpacity>
@@ -287,17 +292,34 @@ const TutorOdsScreen = () => {
                         </View>
                       )}
 
-                      <Text style={styles.inputLabel}>Your Remark</Text>
-                      <TextInput style={[styles.formInput, styles.textArea]} placeholder="Add a remark (required for rejection)" placeholderTextColor={COLORS.textTertiary} value={remark} onChangeText={setRemark} multiline numberOfLines={3} textAlignVertical="top" />
+                      {/* Approvals */}
+                      {selectedOd.approvals?.length > 0 && (
+                        <View style={styles.detailSection}>
+                          <Text style={styles.detailLabel}>APPROVAL TRAIL</Text>
+                          {selectedOd.approvals.map((a, idx) => (
+                            <View key={idx} style={{ marginTop: 4 }}>
+                              <Text style={styles.detailValue}>{a.status === 'APPROVED' ? '✅' : '❌'} {a.approver.name} ({a.role}) — {a.status === 'APPROVED' ? 'Approved' : 'Rejected'}</Text>
+                              {a.remark ? <Text style={[styles.detailValue, { color: COLORS.textSecondary, fontStyle: 'italic' }]}>"{a.remark}"</Text> : null}
+                            </View>
+                          ))}
+                        </View>
+                      )}
 
-                      <View style={styles.actionRow}>
-                        <TouchableOpacity style={[styles.actionBtn, styles.rejectBtn]} activeOpacity={0.85} onPress={handleReject} disabled={isProcessing}>
-                          {isProcessing ? <ActivityIndicator size="small" color={COLORS.danger} /> : <Text style={styles.rejectBtnTxt}>Reject</Text>}
-                        </TouchableOpacity>
-                        <TouchableOpacity style={[styles.actionBtn, styles.approveBtn]} activeOpacity={0.85} onPress={handleApprove} disabled={isProcessing}>
-                          {isProcessing ? <ActivityIndicator size="small" color={COLORS.white} /> : <Text style={styles.approveBtnTxt}>Approve</Text>}
-                        </TouchableOpacity>
-                      </View>
+                      {selectedOd.status === 'PENDING_TUTOR' && (
+                        <>
+                          <Text style={styles.inputLabel}>Your Remark</Text>
+                          <TextInput style={[styles.formInput, styles.textArea]} placeholder="Add a remark (required for rejection)" placeholderTextColor={COLORS.textTertiary} value={remark} onChangeText={setRemark} multiline numberOfLines={3} textAlignVertical="top" />
+
+                          <View style={styles.actionRow}>
+                            <TouchableOpacity style={[styles.actionBtn, styles.rejectBtn]} activeOpacity={0.85} onPress={handleReject} disabled={isProcessing}>
+                              {isProcessing ? <ActivityIndicator size="small" color={COLORS.danger} /> : <Text style={styles.rejectBtnTxt}>Reject</Text>}
+                            </TouchableOpacity>
+                            <TouchableOpacity style={[styles.actionBtn, styles.approveBtn]} activeOpacity={0.85} onPress={handleApprove} disabled={isProcessing}>
+                              {isProcessing ? <ActivityIndicator size="small" color={COLORS.white} /> : <Text style={styles.approveBtnTxt}>Approve</Text>}
+                            </TouchableOpacity>
+                          </View>
+                        </>
+                      )}
                     </>
                   )}
                 </ScrollView>

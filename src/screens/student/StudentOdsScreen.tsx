@@ -72,6 +72,10 @@ const StudentOdsScreen = () => {
   const [pendingTotal, setPendingTotal] = useState(0);
   const [historyTotal, setHistoryTotal] = useState(0);
 
+  // Details Modal
+  const [detailsVisible, setDetailsVisible] = useState(false);
+  const [selectedOd, setSelectedOd] = useState<OdRequest | null>(null);
+
   // Create Modal
   const [createVisible, setCreateVisible] = useState(false);
   const [newSubject, setNewSubject] = useState('');
@@ -124,6 +128,11 @@ const StudentOdsScreen = () => {
     } finally {
       setLoadingStudents(false);
     }
+  };
+
+  const openDetailsModal = (od: OdRequest) => {
+    setSelectedOd(od);
+    setDetailsVisible(true);
   };
 
   const openCreateModal = () => {
@@ -205,7 +214,7 @@ const StudentOdsScreen = () => {
   const renderOdCard = ({ item }: { item: OdRequest }) => {
     const cfg = STATUS_CONFIG[item.status] || STATUS_CONFIG.PENDING_TUTOR;
     return (
-      <View style={styles.card}>
+      <TouchableOpacity style={styles.card} activeOpacity={0.7} onPress={() => openDetailsModal(item)}>
         <View style={styles.cardHeader}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <View style={[styles.statusBadge, { backgroundColor: cfg.bg }]}>
@@ -248,7 +257,11 @@ const StudentOdsScreen = () => {
             ))}
           </View>
         )}
-      </View>
+        
+        <View style={styles.tapHint}>
+          <Text style={styles.tapHintTxt}>Tap to view details →</Text>
+        </View>
+      </TouchableOpacity>
     );
   };
 
@@ -299,8 +312,90 @@ const StudentOdsScreen = () => {
         />
       )}
 
+      {/* Details Modal */}
+      <Modal visible={detailsVisible} transparent animationType="slide" statusBarTranslucent onRequestClose={() => setDetailsVisible(false)}>
+        <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          <TouchableWithoutFeedback onPress={() => setDetailsVisible(false)}>
+            <View style={{ flex: 1 }} />
+          </TouchableWithoutFeedback>
+          <View style={[styles.modalContent, { paddingBottom: Math.max(insets.bottom, 24) }]}>
+            <View style={styles.modalHandle} />
+            <View style={styles.modalHeaderRow}>
+              <Text style={styles.modalTitle}>OD Details</Text>
+              <TouchableOpacity style={styles.modalCloseBtn} onPress={() => setDetailsVisible(false)}>
+                <Text style={styles.modalCloseTxt}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={{ flexShrink: 1 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+              {selectedOd && (
+                <>
+                  {/* Context Badges */}
+                  <View style={styles.badgesRow}>
+                    <View style={[styles.statusBadge, { backgroundColor: selectedOd.isGroup ? COLORS.tealLight : COLORS.background }]}>
+                      <Text style={[styles.statusText, { color: selectedOd.isGroup ? COLORS.teal : COLORS.textSecondary }]}>
+                        {selectedOd.isGroup ? '👥 Group' : '👤 Individual'}
+                      </Text>
+                    </View>
+                    <View style={[styles.statusBadge, { backgroundColor: STATUS_CONFIG[selectedOd.status]?.bg || COLORS.background }]}>
+                      <Text style={[styles.statusText, { color: STATUS_CONFIG[selectedOd.status]?.color || COLORS.textSecondary }]}>
+                        {STATUS_CONFIG[selectedOd.status]?.label || selectedOd.status}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.detailSection}>
+                    <Text style={styles.detailLabel}>TITLE / EVENT</Text>
+                    <Text style={styles.detailValue}>{selectedOd.subject}</Text>
+                  </View>
+                  <View style={styles.detailSection}>
+                    <Text style={styles.detailLabel}>DESCRIPTION</Text>
+                    <Text style={styles.detailValue}>{selectedOd.description}</Text>
+                  </View>
+                  <View style={styles.detailSection}>
+                    <Text style={styles.detailLabel}>DATE RANGE</Text>
+                    <Text style={styles.detailValue}>📅 {formatDate(selectedOd.startDate)} → {formatDate(selectedOd.endDate)}</Text>
+                  </View>
+                  <View style={styles.detailSection}>
+                    <Text style={styles.detailLabel}>SUBMITTED ON</Text>
+                    <Text style={styles.detailValue}>{formatDate(selectedOd.createdAt)}</Text>
+                  </View>
+
+                  {/* Participants */}
+                  {selectedOd.isGroup && selectedOd.participants?.length > 0 && (
+                    <View style={styles.detailSection}>
+                      <Text style={styles.detailLabel}>PARTICIPANTS ({selectedOd.participants.length})</Text>
+                      {selectedOd.participants.map((p, idx) => (
+                        <View key={idx} style={styles.participantRow}>
+                          <View style={styles.participantDot} />
+                          <Text style={styles.participantName}>{p.student.user.name}</Text>
+                          <Text style={styles.participantReg}>{p.student.registerNumber}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+
+                  {/* Approvals */}
+                  {selectedOd.approvals?.length > 0 && (
+                    <View style={styles.detailSection}>
+                      <Text style={styles.detailLabel}>APPROVAL TRAIL</Text>
+                      {selectedOd.approvals.map((a, idx) => (
+                        <View key={idx} style={{ marginTop: 4 }}>
+                          <Text style={styles.detailValue}>{a.status === 'APPROVED' ? '✅' : '❌'} {a.approver.name} ({a.role}) — {a.status === 'APPROVED' ? 'Approved' : 'Rejected'}</Text>
+                          {a.remark ? <Text style={[styles.detailValue, { color: COLORS.textSecondary, fontStyle: 'italic' }]}>"{a.remark}"</Text> : null}
+                        </View>
+                      ))}
+                    </View>
+                  )}
+                </>
+              )}
+            </ScrollView>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
       {/* Create OD Modal */}
-      <Modal visible={createVisible} transparent animationType="slide" onRequestClose={() => setCreateVisible(false)}>
+      <Modal visible={createVisible} transparent animationType="slide" statusBarTranslucent onRequestClose={() => setCreateVisible(false)}>
         <TouchableWithoutFeedback onPress={() => Keyboard.dismiss()}>
           <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
             <TouchableWithoutFeedback>
@@ -504,6 +599,16 @@ const styles = StyleSheet.create({
   studentItemReg: { fontSize: 12, color: COLORS.textSecondary, marginTop: 1 },
   submitBtn: { height: 52, backgroundColor: COLORS.primary, borderRadius: 16, justifyContent: 'center', alignItems: 'center', marginTop: 8, marginBottom: 16 },
   submitBtnTxt: { fontSize: 16, fontWeight: '700', color: COLORS.white },
+  tapHint: { marginTop: 12, paddingTop: 10, borderTopWidth: 1, borderTopColor: COLORS.border },
+  tapHintTxt: { fontSize: 13, fontWeight: '600', color: COLORS.primary },
+  badgesRow: { flexDirection: 'row', gap: 8, marginBottom: 20 },
+  detailSection: { marginBottom: 16 },
+  detailLabel: { fontSize: 11, fontWeight: '700', color: COLORS.textTertiary, letterSpacing: 0.5, marginBottom: 6 },
+  detailValue: { fontSize: 15, color: COLORS.textPrimary, lineHeight: 22 },
+  participantRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 6, paddingHorizontal: 8, backgroundColor: COLORS.background, borderRadius: 10, marginBottom: 4 },
+  participantDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: COLORS.teal, marginRight: 10 },
+  participantName: { fontSize: 14, fontWeight: '600', color: COLORS.textPrimary, flex: 1 },
+  participantReg: { fontSize: 12, color: COLORS.textSecondary },
 });
 
 export default StudentOdsScreen;
