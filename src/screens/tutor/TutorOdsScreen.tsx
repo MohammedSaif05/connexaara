@@ -68,7 +68,6 @@ const TutorOdsScreen = () => {
   const [pendingTotal, setPendingTotal] = useState(0);
   const [approvedTotal, setApprovedTotal] = useState(0);
 
-  // Action Modal
   const [selectedOd, setSelectedOd] = useState<OdRequest | null>(null);
   const [actionVisible, setActionVisible] = useState(false);
   const [remark, setRemark] = useState('');
@@ -79,7 +78,7 @@ const TutorOdsScreen = () => {
     try {
       const [pendingRes, approvedRes] = await Promise.all([
         getOdRequests(1, 100, 'PENDING_TUTOR'),
-        getOdRequests(1, 100, 'PENDING_HOD'), // Already approved by tutor → sent to HOD
+        getOdRequests(1, 100, 'PENDING_HOD'),
       ]);
       setPendingOds(pendingRes.data);
       setPendingTotal(pendingRes.meta.total);
@@ -93,20 +92,10 @@ const TutorOdsScreen = () => {
     }
   }, [showToast]);
 
-  useEffect(() => {
-    fetchOds();
-  }, [fetchOds]);
+  useEffect(() => { fetchOds(); }, [fetchOds]);
+  const handleRefresh = () => { setIsRefreshing(true); fetchOds(true); };
 
-  const handleRefresh = () => {
-    setIsRefreshing(true);
-    fetchOds(true);
-  };
-
-  const openActionModal = (od: OdRequest) => {
-    setSelectedOd(od);
-    setRemark('');
-    setActionVisible(true);
-  };
+  const openActionModal = (od: OdRequest) => { setSelectedOd(od); setRemark(''); setActionVisible(true); };
 
   const handleApprove = async () => {
     if (!selectedOd) return;
@@ -116,64 +105,52 @@ const TutorOdsScreen = () => {
       showToast('OD request approved and sent to HOD!', 'success');
       setActionVisible(false);
       fetchOds(true);
-    } catch (err) {
-      showToast(err instanceof ApiError ? err.message : 'Failed to approve', 'error');
-    } finally {
-      setIsProcessing(false);
-    }
+    } catch (err) { showToast(err instanceof ApiError ? err.message : 'Failed to approve', 'error'); }
+    finally { setIsProcessing(false); }
   };
 
   const handleReject = async () => {
     if (!selectedOd) return;
-    if (!remark.trim()) {
-      showToast('Please provide a reason for rejection', 'error');
-      return;
-    }
+    if (!remark.trim()) { showToast('Please provide a reason for rejection', 'error'); return; }
     setIsProcessing(true);
     try {
       await rejectOdRequest(selectedOd.id, remark);
       showToast('OD request rejected', 'info');
       setActionVisible(false);
       fetchOds(true);
-    } catch (err) {
-      showToast(err instanceof ApiError ? err.message : 'Failed to reject', 'error');
-    } finally {
-      setIsProcessing(false);
-    }
+    } catch (err) { showToast(err instanceof ApiError ? err.message : 'Failed to reject', 'error'); }
+    finally { setIsProcessing(false); }
   };
 
-  const formatDate = (dateStr: string) => {
-    const d = new Date(dateStr);
-    return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
-  };
-
-  const formatTime = (dateStr: string) => {
-    const d = new Date(dateStr);
-    return d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
-  };
+  const formatDate = (dateStr: string) => new Date(dateStr).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+  const formatTime = (dateStr: string) => new Date(dateStr).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
 
   const renderOdCard = ({ item }: { item: OdRequest }) => {
     const cfg = STATUS_CONFIG[item.status] || STATUS_CONFIG.PENDING_TUTOR;
     const isPending = item.status === 'PENDING_TUTOR';
     return (
-      <TouchableOpacity
-        style={styles.card}
-        activeOpacity={isPending ? 0.7 : 1}
-        onPress={() => isPending && openActionModal(item)}
-      >
+      <TouchableOpacity style={styles.card} activeOpacity={isPending ? 0.7 : 1} onPress={() => isPending && openActionModal(item)}>
         <View style={styles.cardHeader}>
-          <View style={[styles.statusBadge, { backgroundColor: cfg.bg }]}>
-            <Text style={[styles.statusText, { color: cfg.color }]}>{cfg.label}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <View style={[styles.statusBadge, { backgroundColor: cfg.bg }]}>
+              <Text style={[styles.statusText, { color: cfg.color }]}>{cfg.label}</Text>
+            </View>
+            {item.isGroup ? (
+              <View style={[styles.statusBadge, { backgroundColor: COLORS.tealLight }]}>
+                <Text style={[styles.statusText, { color: COLORS.teal }]}>Group</Text>
+              </View>
+            ) : (
+              <View style={[styles.statusBadge, { backgroundColor: COLORS.background }]}>
+                <Text style={[styles.statusText, { color: COLORS.textSecondary }]}>Individual</Text>
+              </View>
+            )}
           </View>
-          <Text style={styles.cardDate}>{formatDate(item.createdAt)}</Text>
         </View>
 
         {/* Student Info */}
         <View style={styles.studentRow}>
           <View style={styles.avatar}>
-            <Text style={styles.avatarTxt}>
-              {item.student?.user?.name?.charAt(0)?.toUpperCase() || '?'}
-            </Text>
+            <Text style={styles.avatarTxt}>{item.student?.user?.name?.charAt(0)?.toUpperCase() || '?'}</Text>
           </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.studentName}>{item.student?.user?.name}</Text>
@@ -182,7 +159,17 @@ const TutorOdsScreen = () => {
         </View>
 
         <Text style={styles.cardTitle} numberOfLines={2}>{item.subject}</Text>
-        <Text style={styles.cardDesc} numberOfLines={3}>{item.description}</Text>
+        <Text style={styles.cardDesc} numberOfLines={2}>{item.description}</Text>
+
+        {/* Date Range */}
+        <View style={styles.dateRow}>
+          <Text style={styles.dateLabel}>📅 {formatDate(item.startDate)} → {formatDate(item.endDate)}</Text>
+        </View>
+
+        {/* Participants count */}
+        {item.isGroup && item.participants?.length > 0 && (
+          <Text style={styles.participantCount}>👥 {item.participants.length} participants</Text>
+        )}
 
         {isPending && (
           <View style={styles.tapHint}>
@@ -198,65 +185,37 @@ const TutorOdsScreen = () => {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
-
-      {/* Header */}
       <View style={[styles.header, { paddingTop: Math.max(insets.top, 20) + 10 }]}>
         <Text style={styles.headerTitle}>OD Requests</Text>
         <Text style={styles.headerSubtitle}>Review and approve student ODs</Text>
       </View>
 
-      {/* Tabs */}
       <View style={styles.tabRow}>
-        <TouchableOpacity
-          style={[styles.tabBtn, activeTab === 'pending' && styles.tabBtnActive]}
-          onPress={() => setActiveTab('pending')}
-        >
-          <Text style={[styles.tabTxt, activeTab === 'pending' && styles.tabTxtActive]}>
-            Pending ({pendingTotal})
-          </Text>
+        <TouchableOpacity style={[styles.tabBtn, activeTab === 'pending' && styles.tabBtnActive]} onPress={() => setActiveTab('pending')}>
+          <Text style={[styles.tabTxt, activeTab === 'pending' && styles.tabTxtActive]}>Pending ({pendingTotal})</Text>
         </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tabBtn, activeTab === 'approved' && styles.tabBtnActive]}
-          onPress={() => setActiveTab('approved')}
-        >
-          <Text style={[styles.tabTxt, activeTab === 'approved' && styles.tabTxtActive]}>
-            Approved ({approvedTotal})
-          </Text>
+        <TouchableOpacity style={[styles.tabBtn, activeTab === 'approved' && styles.tabBtnActive]} onPress={() => setActiveTab('approved')}>
+          <Text style={[styles.tabTxt, activeTab === 'approved' && styles.tabTxtActive]}>Approved ({approvedTotal})</Text>
         </TouchableOpacity>
       </View>
 
-      {/* List */}
       {isLoading ? (
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color={COLORS.primary} />
-          <Text style={styles.loadingText}>Loading requests...</Text>
-        </View>
+        <View style={styles.center}><ActivityIndicator size="large" color={COLORS.primary} /><Text style={styles.loadingText}>Loading requests...</Text></View>
       ) : (
-        <FlatList
-          data={currentData}
-          keyExtractor={item => item.id}
-          renderItem={renderOdCard}
+        <FlatList data={currentData} keyExtractor={item => item.id} renderItem={renderOdCard}
           contentContainerStyle={[styles.list, currentData.length === 0 && { flex: 1 }]}
-          refreshControl={
-            <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor={COLORS.primary} colors={[COLORS.primary]} />
-          }
+          refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor={COLORS.primary} colors={[COLORS.primary]} />}
           ListEmptyComponent={
             <View style={styles.center}>
               <NotFoundIcon width={100} height={100} />
-              <Text style={styles.emptyTitle}>
-                {activeTab === 'pending' ? 'No Pending Requests' : 'No Approved Requests'}
-              </Text>
-              <Text style={styles.emptyDesc}>
-                {activeTab === 'pending'
-                  ? 'There are no OD requests waiting for your review.'
-                  : 'OD requests you approve will appear here.'}
-              </Text>
+              <Text style={styles.emptyTitle}>{activeTab === 'pending' ? 'No Pending Requests' : 'No Approved Requests'}</Text>
+              <Text style={styles.emptyDesc}>{activeTab === 'pending' ? 'No OD requests waiting for your review.' : 'OD requests you approve will appear here.'}</Text>
             </View>
           }
         />
       )}
 
-      {/* Action Modal */}
+      {/* Review Modal */}
       <Modal visible={actionVisible} transparent animationType="slide" onRequestClose={() => setActionVisible(false)}>
         <TouchableWithoutFeedback onPress={() => Keyboard.dismiss()}>
           <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -273,72 +232,61 @@ const TutorOdsScreen = () => {
                 <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
                   {selectedOd && (
                     <>
-                      {/* Student Info */}
                       <View style={styles.detailStudentRow}>
                         <View style={[styles.avatar, { width: 48, height: 48, borderRadius: 16 }]}>
-                          <Text style={[styles.avatarTxt, { fontSize: 18 }]}>
-                            {selectedOd.student?.user?.name?.charAt(0)?.toUpperCase()}
-                          </Text>
+                          <Text style={[styles.avatarTxt, { fontSize: 18 }]}>{selectedOd.student?.user?.name?.charAt(0)?.toUpperCase()}</Text>
                         </View>
                         <View style={{ flex: 1, marginLeft: 12 }}>
                           <Text style={styles.detailName}>{selectedOd.student?.user?.name}</Text>
-                          <Text style={styles.detailReg}>{selectedOd.student?.registerNumber}</Text>
+                          <Text style={styles.detailReg}>{selectedOd.student?.registerNumber} • {selectedOd.batch?.name}</Text>
+                        </View>
+                        <View style={[styles.statusBadge, { backgroundColor: selectedOd.isGroup ? COLORS.tealLight : COLORS.background }]}>
+                          <Text style={[styles.statusText, { color: selectedOd.isGroup ? COLORS.teal : COLORS.textSecondary }]}>
+                            {selectedOd.isGroup ? 'Group' : 'Individual'}
+                          </Text>
                         </View>
                       </View>
 
                       <View style={styles.detailSection}>
-                        <Text style={styles.detailLabel}>SUBJECT / EVENT</Text>
+                        <Text style={styles.detailLabel}>TITLE / EVENT</Text>
                         <Text style={styles.detailValue}>{selectedOd.subject}</Text>
                       </View>
-
                       <View style={styles.detailSection}>
                         <Text style={styles.detailLabel}>DESCRIPTION</Text>
                         <Text style={styles.detailValue}>{selectedOd.description}</Text>
                       </View>
-
+                      <View style={styles.detailSection}>
+                        <Text style={styles.detailLabel}>DATE RANGE</Text>
+                        <Text style={styles.detailValue}>📅 {formatDate(selectedOd.startDate)} → {formatDate(selectedOd.endDate)}</Text>
+                      </View>
                       <View style={styles.detailSection}>
                         <Text style={styles.detailLabel}>SUBMITTED ON</Text>
-                        <Text style={styles.detailValue}>
-                          {formatDate(selectedOd.createdAt)} at {formatTime(selectedOd.createdAt)}
-                        </Text>
+                        <Text style={styles.detailValue}>{formatDate(selectedOd.createdAt)} at {formatTime(selectedOd.createdAt)}</Text>
                       </View>
 
+                      {/* Participants */}
+                      {selectedOd.isGroup && selectedOd.participants?.length > 0 && (
+                        <View style={styles.detailSection}>
+                          <Text style={styles.detailLabel}>PARTICIPANTS ({selectedOd.participants.length})</Text>
+                          {selectedOd.participants.map((p, idx) => (
+                            <View key={idx} style={styles.participantRow}>
+                              <View style={styles.participantDot} />
+                              <Text style={styles.participantName}>{p.student.user.name}</Text>
+                              <Text style={styles.participantReg}>{p.student.registerNumber}</Text>
+                            </View>
+                          ))}
+                        </View>
+                      )}
+
                       <Text style={styles.inputLabel}>Your Remark</Text>
-                      <TextInput
-                        style={[styles.formInput, styles.textArea]}
-                        placeholder="Add a remark (required for rejection)"
-                        placeholderTextColor={COLORS.textTertiary}
-                        value={remark}
-                        onChangeText={setRemark}
-                        multiline
-                        numberOfLines={3}
-                        textAlignVertical="top"
-                      />
+                      <TextInput style={[styles.formInput, styles.textArea]} placeholder="Add a remark (required for rejection)" placeholderTextColor={COLORS.textTertiary} value={remark} onChangeText={setRemark} multiline numberOfLines={3} textAlignVertical="top" />
 
                       <View style={styles.actionRow}>
-                        <TouchableOpacity
-                          style={[styles.actionBtn, styles.rejectBtn]}
-                          activeOpacity={0.85}
-                          onPress={handleReject}
-                          disabled={isProcessing}
-                        >
-                          {isProcessing ? (
-                            <ActivityIndicator size="small" color={COLORS.danger} />
-                          ) : (
-                            <Text style={styles.rejectBtnTxt}>Reject</Text>
-                          )}
+                        <TouchableOpacity style={[styles.actionBtn, styles.rejectBtn]} activeOpacity={0.85} onPress={handleReject} disabled={isProcessing}>
+                          {isProcessing ? <ActivityIndicator size="small" color={COLORS.danger} /> : <Text style={styles.rejectBtnTxt}>Reject</Text>}
                         </TouchableOpacity>
-                        <TouchableOpacity
-                          style={[styles.actionBtn, styles.approveBtn]}
-                          activeOpacity={0.85}
-                          onPress={handleApprove}
-                          disabled={isProcessing}
-                        >
-                          {isProcessing ? (
-                            <ActivityIndicator size="small" color={COLORS.white} />
-                          ) : (
-                            <Text style={styles.approveBtnTxt}>Approve</Text>
-                          )}
+                        <TouchableOpacity style={[styles.actionBtn, styles.approveBtn]} activeOpacity={0.85} onPress={handleApprove} disabled={isProcessing}>
+                          {isProcessing ? <ActivityIndicator size="small" color={COLORS.white} /> : <Text style={styles.approveBtnTxt}>Approve</Text>}
                         </TouchableOpacity>
                       </View>
                     </>
@@ -355,29 +303,11 @@ const TutorOdsScreen = () => {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
-  header: {
-    paddingHorizontal: 20,
-    paddingBottom: 16,
-    backgroundColor: COLORS.white,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-  },
+  header: { paddingHorizontal: 20, paddingBottom: 16, backgroundColor: COLORS.white, borderBottomWidth: 1, borderBottomColor: COLORS.border },
   headerTitle: { fontSize: 24, fontWeight: '800', color: COLORS.textPrimary },
   headerSubtitle: { fontSize: 13, color: COLORS.textSecondary, marginTop: 2 },
-  tabRow: {
-    flexDirection: 'row',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    backgroundColor: COLORS.white,
-    gap: 10,
-  },
-  tabBtn: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: 12,
-    backgroundColor: COLORS.background,
-    alignItems: 'center',
-  },
+  tabRow: { flexDirection: 'row', paddingHorizontal: 20, paddingVertical: 12, backgroundColor: COLORS.white, gap: 10 },
+  tabBtn: { flex: 1, paddingVertical: 10, borderRadius: 12, backgroundColor: COLORS.background, alignItems: 'center' },
   tabBtnActive: { backgroundColor: COLORS.primaryLight },
   tabTxt: { fontSize: 14, fontWeight: '600', color: COLORS.textSecondary },
   tabTxtActive: { color: COLORS.primary, fontWeight: '700' },
@@ -386,48 +316,25 @@ const styles = StyleSheet.create({
   loadingText: { marginTop: 12, fontSize: 14, color: COLORS.textSecondary },
   emptyTitle: { fontSize: 18, fontWeight: '700', color: COLORS.textPrimary, marginTop: 16 },
   emptyDesc: { fontSize: 14, color: COLORS.textSecondary, textAlign: 'center', marginTop: 8, lineHeight: 20 },
-  card: {
-    backgroundColor: COLORS.white,
-    borderRadius: 20,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    shadowColor: COLORS.textPrimary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.04,
-    shadowRadius: 10,
-    elevation: 2,
-  },
+  card: { backgroundColor: COLORS.white, borderRadius: 20, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: COLORS.border, shadowColor: COLORS.textPrimary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.04, shadowRadius: 10, elevation: 2 },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
   statusText: { fontSize: 11, fontWeight: '700' },
   cardDate: { fontSize: 12, color: COLORS.textSecondary },
   studentRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 14,
-    backgroundColor: COLORS.primaryLight,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
+  avatar: { width: 40, height: 40, borderRadius: 14, backgroundColor: COLORS.primaryLight, justifyContent: 'center', alignItems: 'center', marginRight: 12 },
   avatarTxt: { fontSize: 16, fontWeight: '800', color: COLORS.primary },
   studentName: { fontSize: 15, fontWeight: '700', color: COLORS.textPrimary },
   studentReg: { fontSize: 12, color: COLORS.textSecondary, marginTop: 2 },
   cardTitle: { fontSize: 16, fontWeight: '700', color: COLORS.textPrimary, marginBottom: 6 },
   cardDesc: { fontSize: 13, color: COLORS.textSecondary, lineHeight: 19 },
+  dateRow: { marginTop: 8 },
+  dateLabel: { fontSize: 12, color: COLORS.primary, fontWeight: '600' },
+  participantCount: { fontSize: 12, color: COLORS.teal, fontWeight: '600', marginTop: 6 },
   tapHint: { marginTop: 12, paddingTop: 10, borderTopWidth: 1, borderTopColor: COLORS.border },
   tapHintTxt: { fontSize: 13, fontWeight: '600', color: COLORS.primary },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  modalContent: {
-    backgroundColor: COLORS.white,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    padding: 24,
-    maxHeight: '90%',
-  },
+  modalContent: { backgroundColor: COLORS.white, borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, maxHeight: '92%' },
   modalHandle: { width: 40, height: 4, backgroundColor: COLORS.border, borderRadius: 2, alignSelf: 'center', marginBottom: 16 },
   modalHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   modalTitle: { fontSize: 20, fontWeight: '800', color: COLORS.textPrimary },
@@ -437,22 +344,16 @@ const styles = StyleSheet.create({
   detailName: { fontSize: 18, fontWeight: '700', color: COLORS.textPrimary },
   detailReg: { fontSize: 13, color: COLORS.textSecondary, marginTop: 2 },
   detailSection: { marginBottom: 16 },
-  detailLabel: { fontSize: 11, fontWeight: '700', color: COLORS.textTertiary, letterSpacing: 0.5, marginBottom: 4 },
+  detailLabel: { fontSize: 11, fontWeight: '700', color: COLORS.textTertiary, letterSpacing: 0.5, marginBottom: 6 },
   detailValue: { fontSize: 15, color: COLORS.textPrimary, lineHeight: 22 },
+  participantRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 6, paddingHorizontal: 8, backgroundColor: COLORS.background, borderRadius: 10, marginBottom: 4 },
+  participantDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: COLORS.teal, marginRight: 10 },
+  participantName: { fontSize: 14, fontWeight: '600', color: COLORS.textPrimary, flex: 1 },
+  participantReg: { fontSize: 12, color: COLORS.textSecondary },
   inputLabel: { fontSize: 13, fontWeight: '700', color: COLORS.textSecondary, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 },
-  formInput: {
-    height: 48,
-    backgroundColor: COLORS.background,
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    fontSize: 15,
-    color: COLORS.textPrimary,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    marginBottom: 16,
-  },
+  formInput: { height: 48, backgroundColor: COLORS.background, borderRadius: 12, paddingHorizontal: 16, fontSize: 15, color: COLORS.textPrimary, borderWidth: 1, borderColor: COLORS.border, marginBottom: 16 },
   textArea: { height: 90, paddingTop: 14 },
-  actionRow: { flexDirection: 'row', gap: 12, marginTop: 8 },
+  actionRow: { flexDirection: 'row', gap: 12, marginTop: 8, marginBottom: 16 },
   actionBtn: { flex: 1, height: 52, borderRadius: 16, justifyContent: 'center', alignItems: 'center' },
   rejectBtn: { backgroundColor: COLORS.dangerLight, borderWidth: 1, borderColor: COLORS.danger },
   rejectBtnTxt: { fontSize: 16, fontWeight: '700', color: COLORS.danger },

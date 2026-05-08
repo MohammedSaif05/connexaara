@@ -615,6 +615,13 @@ export type OdStatusType =
   | 'REJECTED_BY_TUTOR'
   | 'REJECTED_BY_HOD';
 
+export interface OdParticipant {
+  student: {
+    registerNumber: string;
+    user: { name: string };
+  };
+}
+
 export interface OdApproval {
   role: string;
   status: string;
@@ -627,6 +634,9 @@ export interface OdRequest {
   id: string;
   subject: string;
   description: string;
+  isGroup: boolean;
+  startDate: string;
+  endDate: string;
   status: OdStatusType;
   currentLevel: string;
   createdAt: string;
@@ -634,8 +644,9 @@ export interface OdRequest {
     registerNumber: string;
     user: { name: string; email: string };
   };
-  batch: { id: string; name: string };
+  batch: { id: string; name: string; currentSemester: number };
   approvals: OdApproval[];
+  participants: OdParticipant[];
 }
 
 export interface OdListResponse {
@@ -667,7 +678,11 @@ export const getOdRequests = (
 export const createOdRequest = (payload: {
   subject: string;
   description: string;
-}): Promise<{ id: string; subject: string; description: string; status: string; currentLevel: string; createdAt: string }> =>
+  isGroup: boolean;
+  startDate: string;
+  endDate: string;
+  participantIds?: string[];
+}): Promise<{ id: string; status: string; createdAt: string }> =>
   request('POST', '/od-requests', payload, true);
 
 /**
