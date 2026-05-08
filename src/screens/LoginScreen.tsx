@@ -102,6 +102,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
 
     try {
       const response = await login(email.trim(), password);
+      console.log('\n\n=== LOGIN RESPONSE ===\n', JSON.stringify(response.user, null, 2), '\n======================\n\n');
 
       // Persist auth data to local storage for session restoration
       await saveAuthData({

@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, StatusBar, TouchableOpacity, ScrollView, Modal } from 'react-native';
+import { View, Text, StyleSheet, StatusBar, TouchableOpacity, ScrollView, Modal, RefreshControl, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from '@react-native-community/blur';
 import NotificationIcon from '../../assets/svg/notification.svg';
 import { getAuthData } from '../../services/storage';
+import { getTimetable, TimetableSlot } from '../../services/api';
 
 const COLORS = {
   background: '#F5F7FA',
@@ -18,65 +19,95 @@ const COLORS = {
   inputBg: '#F8FAFC',
 };
 
-// --- Models & Mock Data (Ported from Tutor Dashboard) ---
-
-interface Subject {
-  id: string;
-  name: string;
-  code: string;
-  semester: string;
-}
-
-interface PeriodEntry {
-  id: string;
-  day: string;
-  startTime: string;
-  endTime: string;
-  type: 'Subject' | 'Break' | 'Lunch';
-  subjectId?: string;
-  staffId?: string;
-}
-
-const MOCK_STAFF = [
-  { id: 's1', name: 'John Doe' },
-  { id: 's2', name: 'Sarah Smith' },
-  { id: 's3', name: 'Mike Ross' },
-];
-
-const INITIAL_SUBJECTS: Subject[] = [
-  { id: 'sub1', name: 'Data Structures', code: 'CS301', semester: '3' },
-  { id: 'sub2', name: 'Operating Systems', code: 'CS302', semester: '3' },
-  { id: 'sub3', name: 'Machine Learning', code: 'CS501', semester: '5' },
-];
-
-const MOCK_STUDENT_TIMETABLE_ENTRIES: PeriodEntry[] = [
-  { id: 'p1', day: 'Monday', startTime: '09:00 AM', endTime: '10:00 AM', type: 'Subject', subjectId: 'sub1', staffId: 's1' },
-  { id: 'p2', day: 'Monday', startTime: '10:00 AM', endTime: '11:00 AM', type: 'Subject', subjectId: 'sub2', staffId: 's2' },
-  { id: 'p3', day: 'Monday', startTime: '11:00 AM', endTime: '11:15 AM', type: 'Break' },
-  { id: 'p4', day: 'Tuesday', startTime: '09:00 AM', endTime: '10:00 AM', type: 'Subject', subjectId: 'sub3', staffId: 's3' },
-];
-
-const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const DAYS = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
 
 const StudentHomeScreen = () => {
   const insets = useSafeAreaInsets();
   const [timetableModalVisible, setTimetableModalVisible] = useState(false);
   const [userName, setUserName] = useState('');
   const [deptName, setDeptName] = useState('');
+  const [batchName, setBatchName] = useState('');
+  const [batchId, setBatchId] = useState<string | null>(null);
+  const [currentSemester, setCurrentSemester] = useState<number | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [timetableSlots, setTimetableSlots] = useState<TimetableSlot[]>([]);
+  const [currentSlot, setCurrentSlot] = useState<TimetableSlot | 'FREE' | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   useEffect(() => {
     getAuthData().then(data => {
       if (data) {
         setUserName(data.name);
         setDeptName(data.departmentName);
+        if (data.batchName) setBatchName(data.batchName);
+        if (data.batchId) setBatchId(data.batchId);
+        if (data.currentSemester) setCurrentSemester(data.currentSemester);
       }
     });
   }, []);
 
-  // Mocking current active period for the widget
-  const currentPeriod = MOCK_STUDENT_TIMETABLE_ENTRIES[0];
-  const currentSubject = INITIAL_SUBJECTS.find(s => s.id === currentPeriod.subjectId);
-  const currentStaff = MOCK_STAFF.find(s => s.id === currentPeriod.staffId);
+  const fetchTimetable = async (silent = false) => {
+    if (!batchId || !currentSemester) return;
+    if (!silent) setIsLoading(true);
+    try {
+      const res = await getTimetable(batchId, currentSemester);
+      if (res && res.slots) {
+        setTimetableSlots(res.slots);
+        calculateCurrentSlot(res.slots);
+      }
+    } catch (err) {
+      console.log('Failed to load timetable:', err);
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+    }
+  };
+
+  const handleRefresh = () => {
+    setIsRefreshing(true);
+    fetchTimetable(true);
+  };
+
+  useEffect(() => {
+    fetchTimetable();
+    const intervalId = setInterval(() => fetchTimetable(true), 60000);
+    return () => clearInterval(intervalId);
+  }, [batchId, currentSemester]);
+
+  const calculateCurrentSlot = (slots: TimetableSlot[]) => {
+    const daysArr = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
+    const todayStr = daysArr[new Date().getDay()];
+
+    const now = new Date();
+    const currentTotalMinutes = now.getHours() * 60 + now.getMinutes();
+
+    const todaysSlots = slots.filter(s => s.day === todayStr);
+
+    let foundSlot: TimetableSlot | null = null;
+    for (const slot of todaysSlots) {
+      const [startH, startM] = slot.startTime.split(':').map(Number);
+      const [endH, endM] = slot.endTime.split(':').map(Number);
+
+      const startTotal = startH * 60 + startM;
+      const endTotal = endH * 60 + endM;
+
+      if (currentTotalMinutes >= startTotal && currentTotalMinutes < endTotal) {
+        foundSlot = slot;
+        break;
+      }
+    }
+    setCurrentSlot(foundSlot ? foundSlot : 'FREE');
+  };
+
+  const formatAMPM = (time24: string) => {
+    if (!time24) return '';
+    const [h, m] = time24.split(':');
+    let hours = parseInt(h, 10);
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12;
+    hours = hours ? hours : 12;
+    return `${hours}:${m} ${ampm}`;
+  };
 
   return (
     <View style={styles.container}>
@@ -86,7 +117,18 @@ const StudentHomeScreen = () => {
       <View style={styles.bgBlob1} />
       <View style={styles.bgBlob2} />
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
+      <ScrollView 
+        showsVerticalScrollIndicator={false} 
+        contentContainerStyle={{ paddingBottom: 40 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={handleRefresh}
+            colors={[COLORS.blue]}
+            tintColor={COLORS.blue}
+          />
+        }
+      >
         {/* Premium Glassmorphism Header */}
         <View style={[styles.headerShadow, { marginTop: Math.max(insets.top, 10) + 10 }]}>
           <View style={styles.headerWrapper}>
@@ -99,12 +141,14 @@ const StudentHomeScreen = () => {
             <View style={styles.headerContainer}>
               <View style={styles.userInfoContainer}>
                 <View style={styles.nameRow}>
-                <Text style={styles.greetingText} numberOfLines={1}>{userName || 'Loading...'}</Text>
-                <View style={styles.tagContainer}>
-                  <Text style={styles.tagText}>STUDENT</Text>
+                  <Text style={styles.greetingText} numberOfLines={1}>{userName || 'Loading...'}</Text>
+                  <View style={styles.tagContainer}>
+                    <Text style={styles.tagText}>STUDENT</Text>
+                  </View>
                 </View>
-              </View>
-              <Text style={styles.deptText}>{deptName || '—'}</Text>
+                <Text style={styles.deptText}>
+                  {deptName ? `${deptName}${batchName ? ` • ${batchName}` : ''}` : batchName || '—'}
+                </Text>
               </View>
 
               <TouchableOpacity style={styles.notificationBtn} activeOpacity={0.7}>
@@ -121,23 +165,61 @@ const StudentHomeScreen = () => {
           <Text style={styles.sectionTitle}>Current Period</Text>
           
           {/* Current Period Card Widget */}
-          <View style={styles.currentPeriodCard}>
-            <View style={styles.periodHeader}>
-              <View style={styles.liveIndicatorRow}>
-                <View style={styles.liveDot} />
-                <Text style={styles.liveText}>HAPPENING NOW</Text>
-              </View>
-              <Text style={styles.periodTime}>{currentPeriod.startTime} - {currentPeriod.endTime}</Text>
+          {isLoading ? (
+            <View style={[styles.currentPeriodCard, { justifyContent: 'center', alignItems: 'center', height: 120 }]}>
+              <Text style={{ color: COLORS.textSecondary }}>Loading...</Text>
             </View>
-            <View style={styles.periodBody}>
-              <Text style={styles.subjectTitle}>{currentSubject?.name || 'Unknown'}</Text>
-              <View style={styles.periodMetaRow}>
-                <Text style={styles.periodMetaText}>Code: {currentSubject?.code || 'N/A'}</Text>
-                <Text style={styles.periodMetaDivider}>•</Text>
-                <Text style={styles.periodMetaText}>Prof. {currentStaff?.name || 'Unassigned'}</Text>
+          ) : !currentSlot || currentSlot === 'FREE' ? (
+            <View style={styles.currentPeriodCard}>
+              <View style={styles.periodHeader}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <View style={[styles.liveIndicatorRow, { backgroundColor: COLORS.border }]}>
+                    <Text style={[styles.liveText, { color: COLORS.textSecondary }]}>CURRENTLY</Text>
+                  </View>
+                  {currentSemester && (
+                    <View style={[styles.tagContainer, { backgroundColor: 'rgba(16, 185, 129, 0.1)', borderColor: 'rgba(16, 185, 129, 0.3)' }]}>
+                      <Text style={[styles.tagText, { color: COLORS.emerald }]}>SEM {currentSemester}</Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+              <View style={styles.periodBody}>
+                <Text style={styles.subjectTitle}>Free Period 🎉</Text>
+                <Text style={styles.periodMetaText}>Take a break or prepare for the next class.</Text>
               </View>
             </View>
-          </View>
+          ) : (
+            <View style={styles.currentPeriodCard}>
+              <View style={styles.periodHeader}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <View style={styles.liveIndicatorRow}>
+                    <View style={styles.liveDot} />
+                    <Text style={styles.liveText}>HAPPENING NOW</Text>
+                  </View>
+                  {currentSemester && (
+                    <View style={[styles.tagContainer, { backgroundColor: 'rgba(16, 185, 129, 0.1)', borderColor: 'rgba(16, 185, 129, 0.3)' }]}>
+                      <Text style={[styles.tagText, { color: COLORS.emerald }]}>SEM {currentSemester}</Text>
+                    </View>
+                  )}
+                </View>
+                <Text style={styles.periodTime}>{formatAMPM(currentSlot.startTime)} - {formatAMPM(currentSlot.endTime)}</Text>
+              </View>
+              <View style={styles.periodBody}>
+                {currentSlot.type === 'SUBJECT' ? (
+                  <>
+                    <Text style={styles.subjectTitle}>{currentSlot.subject?.name || 'Unknown'}</Text>
+                    <View style={styles.periodMetaRow}>
+                      <Text style={styles.periodMetaText}>Code: {currentSlot.subject?.subjectCode || 'N/A'}</Text>
+                      <Text style={styles.periodMetaDivider}>•</Text>
+                      <Text style={styles.periodMetaText}>Prof. {currentSlot.staff?.name || 'Unassigned'}</Text>
+                    </View>
+                  </>
+                ) : (
+                  <Text style={styles.subjectTitle}>{currentSlot.type === 'LUNCH' ? 'Lunch Break 🍔' : 'Break Time ☕'}</Text>
+                )}
+              </View>
+            </View>
+          )}
 
           <Text style={styles.sectionTitle}>Quick Access</Text>
 
@@ -178,30 +260,28 @@ const StudentHomeScreen = () => {
             </View>
             <ScrollView showsVerticalScrollIndicator={false}>
               {DAYS.map(day => {
-                const dayEntries = MOCK_STUDENT_TIMETABLE_ENTRIES.filter(e => e.day === day);
+                const dayEntries = timetableSlots.filter(e => e.day === day).sort((a, b) => a.startTime.localeCompare(b.startTime));
                 if (dayEntries.length === 0) return null;
 
                 return (
                   <View key={day} style={styles.dayGroupContainer}>
                     <Text style={styles.dayGroupHeader}>{day}</Text>
                     {dayEntries.map(entry => {
-                      const subject = INITIAL_SUBJECTS.find(s => s.id === entry.subjectId);
-                      const staff = MOCK_STAFF.find(s => s.id === entry.staffId);
                       return (
                         <View key={entry.id} style={styles.viewEntryCard}>
                           <View style={styles.viewTimeBox}>
-                            <Text style={styles.viewTimeText}>{entry.startTime}</Text>
+                            <Text style={styles.viewTimeText}>{formatAMPM(entry.startTime)}</Text>
                             <Text style={styles.viewTimeDivider}>to</Text>
-                            <Text style={styles.viewTimeText}>{entry.endTime}</Text>
+                            <Text style={styles.viewTimeText}>{formatAMPM(entry.endTime)}</Text>
                           </View>
                           <View style={styles.viewDetailsBox}>
-                            {entry.type === 'Subject' ? (
+                            {entry.type === 'SUBJECT' ? (
                               <>
-                                <Text style={styles.viewSubjectName}>{subject?.name || 'Unknown Subject'}</Text>
-                                <Text style={styles.viewStaffName}>{staff?.name || 'Unassigned Staff'}</Text>
+                                <Text style={styles.viewSubjectName}>{entry.subject?.name || 'Unknown Subject'}</Text>
+                                <Text style={styles.viewStaffName}>{entry.staff?.name || 'Unassigned Staff'}</Text>
                               </>
                             ) : (
-                              <Text style={styles.viewBreakName}>{entry.type}</Text>
+                              <Text style={styles.viewBreakName}>{entry.type === 'LUNCH' ? 'Lunch Break' : 'Break'}</Text>
                             )}
                           </View>
                         </View>
@@ -210,6 +290,11 @@ const StudentHomeScreen = () => {
                   </View>
                 );
               })}
+              {timetableSlots.length === 0 && !isLoading && (
+                <View style={{ alignItems: 'center', padding: 40 }}>
+                  <Text style={{ color: COLORS.textSecondary }}>No timetable found for this semester.</Text>
+                </View>
+              )}
             </ScrollView>
           </View>
         </View>

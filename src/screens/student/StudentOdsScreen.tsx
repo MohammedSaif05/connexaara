@@ -76,6 +76,16 @@ const StudentOdsScreen = () => {
   const [detailsVisible, setDetailsVisible] = useState(false);
   const [selectedOd, setSelectedOd] = useState<OdRequest | null>(null);
 
+  // Keyboard padding for Android modal bug
+  const [keyboardPadding, setKeyboardPadding] = useState(0);
+
+  useEffect(() => {
+    if (Platform.OS === 'ios') return;
+    const showSub = Keyboard.addListener('keyboardDidShow', (e) => setKeyboardPadding(e.endCoordinates.height));
+    const hideSub = Keyboard.addListener('keyboardDidHide', () => setKeyboardPadding(0));
+    return () => { showSub.remove(); hideSub.remove(); };
+  }, []);
+
   // Create Modal
   const [createVisible, setCreateVisible] = useState(false);
   const [newSubject, setNewSubject] = useState('');
@@ -396,10 +406,11 @@ const StudentOdsScreen = () => {
 
       {/* Create OD Modal */}
       <Modal visible={createVisible} transparent animationType="slide" statusBarTranslucent onRequestClose={() => setCreateVisible(false)}>
-        <TouchableWithoutFeedback onPress={() => Keyboard.dismiss()}>
-          <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-            <TouchableWithoutFeedback>
-              <View style={[styles.modalContent, { paddingBottom: Math.max(insets.bottom, 24) }]}>
+        <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          <TouchableWithoutFeedback onPress={() => Keyboard.dismiss()}>
+            <View style={{ flex: 1 }} />
+          </TouchableWithoutFeedback>
+          <View style={[styles.modalContent, { paddingBottom: Math.max(insets.bottom, 24) + keyboardPadding }]}>
                 <View style={styles.modalHandle} />
                 <View style={styles.modalHeaderRow}>
                   <Text style={styles.modalTitle}>New OD Request</Text>
@@ -513,14 +524,17 @@ const StudentOdsScreen = () => {
                     </View>
                   )}
 
-                  <TouchableOpacity style={[styles.submitBtn, isCreating && { opacity: 0.7 }]} activeOpacity={0.85} onPress={handleCreate} disabled={isCreating}>
+                  <TouchableOpacity 
+                    style={[styles.submitBtn, (!newSubject.trim() || !newDescription.trim() || (isGroup && selectedStudentIds.size === 0) || isCreating) && { opacity: 0.5 }]} 
+                    activeOpacity={0.85} 
+                    onPress={handleCreate} 
+                    disabled={!newSubject.trim() || !newDescription.trim() || (isGroup && selectedStudentIds.size === 0) || isCreating}
+                  >
                     {isCreating ? <ActivityIndicator size="small" color={COLORS.white} /> : <Text style={styles.submitBtnTxt}>Submit Request</Text>}
                   </TouchableOpacity>
                 </ScrollView>
               </View>
-            </TouchableWithoutFeedback>
           </KeyboardAvoidingView>
-        </TouchableWithoutFeedback>
       </Modal>
     </View>
   );

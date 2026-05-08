@@ -61,6 +61,17 @@ const HODOdsScreen = () => {
   const { showToast } = useToast();
 
   const [activeTab, setActiveTab] = useState<'pending' | 'approved'>('pending');
+
+  // Keyboard padding for Android modal bug
+  const [keyboardPadding, setKeyboardPadding] = useState(0);
+
+  useEffect(() => {
+    if (Platform.OS === 'ios') return;
+    const showSub = Keyboard.addListener('keyboardDidShow', (e) => setKeyboardPadding(e.endCoordinates.height));
+    const hideSub = Keyboard.addListener('keyboardDidHide', () => setKeyboardPadding(0));
+    return () => { showSub.remove(); hideSub.remove(); };
+  }, []);
+
   const [pendingOds, setPendingOds] = useState<OdRequest[]>([]);
   const [approvedOds, setApprovedOds] = useState<OdRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -245,7 +256,7 @@ const HODOdsScreen = () => {
             <TouchableWithoutFeedback onPress={() => Keyboard.dismiss()}>
               <View style={{ flex: 1 }} />
             </TouchableWithoutFeedback>
-              <View style={[styles.modalContent, { paddingBottom: Math.max(insets.bottom, 24) }]}>
+              <View style={[styles.modalContent, { paddingBottom: Math.max(insets.bottom, 24) + keyboardPadding }]}>
                 <View style={styles.modalHandle} />
                 <View style={styles.modalHeaderRow}>
                   <Text style={styles.modalTitle}>{selectedOd?.status === 'PENDING_HOD' ? 'Review Request' : 'OD Details'}</Text>
