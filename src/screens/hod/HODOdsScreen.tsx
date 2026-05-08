@@ -186,8 +186,13 @@ const HODOdsScreen = () => {
         )}
 
         {isPending && (
-          <View style={styles.tapHint}>
-            <Text style={styles.tapHintTxt}>Tap to review →</Text>
+          <View style={styles.cardActionRow}>
+            <TouchableOpacity style={[styles.cardActionBtn, styles.cardRejectBtn]} activeOpacity={0.8} onPress={() => openActionModal(item)}>
+              <Text style={styles.cardRejectTxt}>Reject</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.cardActionBtn, styles.cardApproveBtn]} activeOpacity={0.8} onPress={() => openActionModal(item)}>
+              <Text style={styles.cardApproveTxt}>Review & Approve</Text>
+            </TouchableOpacity>
           </View>
         )}
       </TouchableOpacity>
@@ -231,9 +236,10 @@ const HODOdsScreen = () => {
 
       {/* Review Modal */}
       <Modal visible={actionVisible} transparent animationType="slide" onRequestClose={() => setActionVisible(false)}>
-        <TouchableWithoutFeedback onPress={() => Keyboard.dismiss()}>
           <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-            <TouchableWithoutFeedback>
+            <TouchableWithoutFeedback onPress={() => Keyboard.dismiss()}>
+              <View style={{ flex: 1 }} />
+            </TouchableWithoutFeedback>
               <View style={[styles.modalContent, { paddingBottom: Math.max(insets.bottom, 24) }]}>
                 <View style={styles.modalHandle} />
                 <View style={styles.modalHeaderRow}>
@@ -243,7 +249,7 @@ const HODOdsScreen = () => {
                   </TouchableOpacity>
                 </View>
 
-                <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+                <ScrollView style={{ flexShrink: 1 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
                   {selectedOd && (
                     <>
                       <View style={styles.detailStudentRow}>
@@ -327,9 +333,7 @@ const HODOdsScreen = () => {
                   )}
                 </ScrollView>
               </View>
-            </TouchableWithoutFeedback>
           </KeyboardAvoidingView>
-        </TouchableWithoutFeedback>
       </Modal>
     </View>
   );
@@ -369,6 +373,12 @@ const styles = StyleSheet.create({
   approvalDot: { width: 8, height: 8, borderRadius: 4, marginRight: 8 },
   approvalText: { fontSize: 12, color: COLORS.textSecondary, fontWeight: '600' },
   approvalRemark: { fontSize: 12, color: COLORS.textTertiary, fontStyle: 'italic', marginLeft: 16, width: '100%', marginTop: 2 },
+  cardActionRow: { flexDirection: 'row', gap: 10, marginTop: 14, paddingTop: 14, borderTopWidth: 1, borderTopColor: COLORS.border },
+  cardActionBtn: { flex: 1, height: 44, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
+  cardRejectBtn: { backgroundColor: COLORS.dangerLight, borderWidth: 1, borderColor: COLORS.danger },
+  cardRejectTxt: { fontSize: 14, fontWeight: '700', color: COLORS.danger },
+  cardApproveBtn: { backgroundColor: COLORS.primary },
+  cardApproveTxt: { fontSize: 14, fontWeight: '700', color: COLORS.white },
   tapHint: { marginTop: 12, paddingTop: 10, borderTopWidth: 1, borderTopColor: COLORS.border },
   tapHintTxt: { fontSize: 13, fontWeight: '600', color: COLORS.primary },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },

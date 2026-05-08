@@ -117,10 +117,10 @@ const StudentOdsScreen = () => {
     setLoadingStudents(true);
     try {
       // Student role: backend auto-resolves batchId, just pass empty string
-      const res = await getStudents('', 1, 200, '', true);
+      const res = await getStudents('', 1, 100, '', true);
       setBatchStudents(res.data);
-    } catch {
-      showToast('Failed to load batch students', 'error');
+    } catch (err) {
+      showToast(err instanceof ApiError ? err.message : 'Failed to load batch students', 'error');
     } finally {
       setLoadingStudents(false);
     }

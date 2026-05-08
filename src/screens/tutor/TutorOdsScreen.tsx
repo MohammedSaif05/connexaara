@@ -76,14 +76,17 @@ const TutorOdsScreen = () => {
   const fetchOds = useCallback(async (silent = false) => {
     if (!silent) setIsLoading(true);
     try {
-      const [pendingRes, approvedRes] = await Promise.all([
+      const [pendingRes, hodRes, approvedRes] = await Promise.all([
         getOdRequests(1, 100, 'PENDING_TUTOR'),
         getOdRequests(1, 100, 'PENDING_HOD'),
+        getOdRequests(1, 100, 'APPROVED'),
       ]);
       setPendingOds(pendingRes.data);
       setPendingTotal(pendingRes.meta.total);
-      setApprovedOds(approvedRes.data);
-      setApprovedTotal(approvedRes.meta.total);
+      // Merge PENDING_HOD + APPROVED for the "Approved" tab
+      const allApproved = [...hodRes.data, ...approvedRes.data];
+      setApprovedOds(allApproved);
+      setApprovedTotal(allApproved.length);
     } catch (err) {
       showToast(err instanceof ApiError ? err.message : 'Failed to load OD requests', 'error');
     } finally {
@@ -172,8 +175,13 @@ const TutorOdsScreen = () => {
         )}
 
         {isPending && (
-          <View style={styles.tapHint}>
-            <Text style={styles.tapHintTxt}>Tap to review →</Text>
+          <View style={styles.cardActionRow}>
+            <TouchableOpacity style={[styles.cardActionBtn, styles.cardRejectBtn]} activeOpacity={0.8} onPress={() => openActionModal(item)}>
+              <Text style={styles.cardRejectTxt}>Reject</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.cardActionBtn, styles.cardApproveBtn]} activeOpacity={0.8} onPress={() => openActionModal(item)}>
+              <Text style={styles.cardApproveTxt}>Review & Approve</Text>
+            </TouchableOpacity>
           </View>
         )}
       </TouchableOpacity>
@@ -217,9 +225,10 @@ const TutorOdsScreen = () => {
 
       {/* Review Modal */}
       <Modal visible={actionVisible} transparent animationType="slide" onRequestClose={() => setActionVisible(false)}>
-        <TouchableWithoutFeedback onPress={() => Keyboard.dismiss()}>
           <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-            <TouchableWithoutFeedback>
+            <TouchableWithoutFeedback onPress={() => Keyboard.dismiss()}>
+              <View style={{ flex: 1 }} />
+            </TouchableWithoutFeedback>
               <View style={[styles.modalContent, { paddingBottom: Math.max(insets.bottom, 24) }]}>
                 <View style={styles.modalHandle} />
                 <View style={styles.modalHeaderRow}>
@@ -229,7 +238,7 @@ const TutorOdsScreen = () => {
                   </TouchableOpacity>
                 </View>
 
-                <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+                <ScrollView style={{ flexShrink: 1 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
                   {selectedOd && (
                     <>
                       <View style={styles.detailStudentRow}>
@@ -293,9 +302,7 @@ const TutorOdsScreen = () => {
                   )}
                 </ScrollView>
               </View>
-            </TouchableWithoutFeedback>
           </KeyboardAvoidingView>
-        </TouchableWithoutFeedback>
       </Modal>
     </View>
   );
@@ -331,6 +338,12 @@ const styles = StyleSheet.create({
   dateRow: { marginTop: 8 },
   dateLabel: { fontSize: 12, color: COLORS.primary, fontWeight: '600' },
   participantCount: { fontSize: 12, color: COLORS.teal, fontWeight: '600', marginTop: 6 },
+  cardActionRow: { flexDirection: 'row', gap: 10, marginTop: 14, paddingTop: 14, borderTopWidth: 1, borderTopColor: COLORS.border },
+  cardActionBtn: { flex: 1, height: 44, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
+  cardRejectBtn: { backgroundColor: COLORS.dangerLight, borderWidth: 1, borderColor: COLORS.danger },
+  cardRejectTxt: { fontSize: 14, fontWeight: '700', color: COLORS.danger },
+  cardApproveBtn: { backgroundColor: COLORS.primary },
+  cardApproveTxt: { fontSize: 14, fontWeight: '700', color: COLORS.white },
   tapHint: { marginTop: 12, paddingTop: 10, borderTopWidth: 1, borderTopColor: COLORS.border },
   tapHintTxt: { fontSize: 13, fontWeight: '600', color: COLORS.primary },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
