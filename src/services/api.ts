@@ -603,3 +603,89 @@ export const getTimetable = (batchId: string, semester: number): Promise<Timetab
  */
 export const updateTimetable = (payload: UpdateTimetablePayload): Promise<{ message: string }> =>
   request<{ message: string }>('POST', '/timetable', payload, true);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// OD Requests API
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type OdStatusType =
+  | 'PENDING_TUTOR'
+  | 'PENDING_HOD'
+  | 'APPROVED'
+  | 'REJECTED_BY_TUTOR'
+  | 'REJECTED_BY_HOD';
+
+export interface OdApproval {
+  role: string;
+  status: string;
+  remark: string | null;
+  timestamp: string;
+  approver: { name: string };
+}
+
+export interface OdRequest {
+  id: string;
+  subject: string;
+  description: string;
+  status: OdStatusType;
+  currentLevel: string;
+  createdAt: string;
+  student: {
+    registerNumber: string;
+    user: { name: string; email: string };
+  };
+  batch: { id: string; name: string };
+  approvals: OdApproval[];
+}
+
+export interface OdListResponse {
+  data: OdRequest[];
+  meta: { total: number; page: number; limit: number };
+}
+
+/**
+ * GET /od-requests?page=1&limit=10&status=PENDING_TUTOR
+ * Returns a paginated list of OD requests (filtered by role on the backend).
+ */
+export const getOdRequests = (
+  page: number,
+  limit: number,
+  status?: OdStatusType,
+): Promise<OdListResponse> => {
+  const params = new URLSearchParams({
+    page: String(page),
+    limit: String(limit),
+    ...(status ? { status } : {}),
+  });
+  return request<OdListResponse>('GET', `/od-requests?${params.toString()}`, undefined, true);
+};
+
+/**
+ * POST /od-requests
+ * Creates a new OD request (Student only).
+ */
+export const createOdRequest = (payload: {
+  subject: string;
+  description: string;
+}): Promise<{ id: string; subject: string; description: string; status: string; currentLevel: string; createdAt: string }> =>
+  request('POST', '/od-requests', payload, true);
+
+/**
+ * PATCH /od-requests/:id/approve
+ * Approves an OD request (Tutor or HOD).
+ */
+export const approveOdRequest = (
+  id: string,
+  remark?: string,
+): Promise<{ id: string; status: string; currentLevel: string }> =>
+  request('PATCH', `/od-requests/${id}/approve`, { remark: remark || '' }, true);
+
+/**
+ * PATCH /od-requests/:id/reject
+ * Rejects an OD request (Tutor or HOD).
+ */
+export const rejectOdRequest = (
+  id: string,
+  remark?: string,
+): Promise<{ id: string; status: string; currentLevel: string }> =>
+  request('PATCH', `/od-requests/${id}/reject`, { remark: remark || '' }, true);
