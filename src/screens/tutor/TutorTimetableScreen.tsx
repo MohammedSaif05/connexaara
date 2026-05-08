@@ -86,12 +86,21 @@ const TutorTimetableScreen = () => {
 
   // Add Slot Modal
   const [addVisible, setAddVisible] = useState(false);
-  const [newDay, setNewDay] = useState<'MONDAY' | 'TUESDAY' | 'WEDNESDAY' | 'THURSDAY' | 'FRIDAY' | 'SATURDAY' | 'SUNDAY'>('MONDAY');
-  const [newStartTime, setNewStartTime] = useState('');
-  const [newEndTime, setNewEndTime] = useState('');
+  const [selectedDays, setSelectedDays] = useState<string[]>(['MONDAY']);
+  
+  const [startHH, setStartHH] = useState('');
+  const [startMM, setStartMM] = useState('');
+  const [startAMPM, setStartAMPM] = useState<'AM' | 'PM'>('AM');
+
+  const [endHH, setEndHH] = useState('');
+  const [endMM, setEndMM] = useState('');
+  const [endAMPM, setEndAMPM] = useState<'AM' | 'PM'>('AM');
+  
   const [newType, setNewType] = useState<'SUBJECT' | 'BREAK' | 'LUNCH'>('SUBJECT');
   const [newSubjectId, setNewSubjectId] = useState('');
   const [subjectList, setSubjectList] = useState<any[]>([]);
+
+  const [cancelVisible, setCancelVisible] = useState(false);
 
   // Load auth data
   useEffect(() => {
@@ -147,15 +156,15 @@ const TutorTimetableScreen = () => {
   };
 
   const handleCancelEdit = () => {
-    Alert.alert('Discard Changes?', 'Any added or deleted slots will be lost.', [
-      { text: 'Keep Editing', style: 'cancel' },
-      { text: 'Discard', style: 'destructive', onPress: () => setIsEditing(false) },
-    ]);
+    setCancelVisible(true);
   };
 
   const openAddModal = async () => {
     setAddVisible(true);
-    setNewDay('MONDAY'); setNewStartTime(''); setNewEndTime(''); setNewType('SUBJECT'); setNewSubjectId('');
+    setSelectedDays(['MONDAY']); 
+    setStartHH(''); setStartMM(''); setStartAMPM('AM');
+    setEndHH(''); setEndMM(''); setEndAMPM('AM');
+    setNewType('SUBJECT'); setNewSubjectId('');
     try {
       if (selectedSemester) {
         const subRes = await getSubjects(1, 100, '', selectedSemester);
@@ -167,10 +176,22 @@ const TutorTimetableScreen = () => {
   };
 
   const handleAddDraftSlot = () => {
-    if (!newStartTime.trim() || !newEndTime.trim()) {
+    const formatTo24H = (hh: string, mm: string, ampm: 'AM'|'PM') => {
+      let h = parseInt(hh, 10) || 0;
+      let m = parseInt(mm, 10) || 0;
+      if (ampm === 'PM' && h !== 12) h += 12;
+      if (ampm === 'AM' && h === 12) h = 0;
+      return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+    };
+
+    if (!startHH || !startMM || !endHH || !endMM) {
       showToast('Start and End times are required', 'error');
       return;
     }
+
+    const newStartTime = formatTo24H(startHH, startMM, startAMPM);
+    const newEndTime = formatTo24H(endHH, endMM, endAMPM);
+
     if (newType === 'SUBJECT' && !newSubjectId) {
       showToast('Subject is required', 'error');
       return;
@@ -178,9 +199,9 @@ const TutorTimetableScreen = () => {
 
     const selectedSub = subjectList.find(s => s.id === newSubjectId);
 
-    const newDraft: DraftSlot = {
-      tempId: Date.now().toString(),
-      day: newDay,
+    const newSlots: DraftSlot[] = selectedDays.map(day => ({
+      tempId: Date.now().toString() + Math.random().toString(36).substring(7),
+      day: day as any,
       startTime: newStartTime.trim(),
       endTime: newEndTime.trim(),
       type: newType,
@@ -190,9 +211,9 @@ const TutorTimetableScreen = () => {
         subjectCode: selectedSub.subjectCode,
       } : null,
       staff: null, // Staff will be resolved by backend!
-    };
+    }));
 
-    setDraftSlots(prev => [...prev, newDraft]);
+    setDraftSlots(prev => [...prev, ...newSlots]);
     setAddVisible(false);
   };
 
@@ -448,23 +469,60 @@ const TutorTimetableScreen = () => {
                     ))}
                   </View>
 
-                  <Text style={styles.inputLabel}>Day</Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
-                    {DAYS_ORDER.map(d => (
-                      <TouchableOpacity key={d} style={[styles.dayBtn, newDay === d && styles.typeBtnActive]} onPress={() => setNewDay(d as any)}>
-                        <Text style={[styles.typeBtnTxt, newDay === d && styles.typeBtnTxtActive]}>{d.slice(0, 3)}</Text>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                    <Text style={[styles.inputLabel, { marginBottom: 0 }]}>Days</Text>
+                    {(newType === 'BREAK' || newType === 'LUNCH') && (
+                      <TouchableOpacity onPress={() => setSelectedDays(['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'])}>
+                        <Text style={{ fontSize: 13, color: COLORS.primary, fontWeight: '600' }}>Select Mon-Sat</Text>
                       </TouchableOpacity>
-                    ))}
+                    )}
+                  </View>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
+                    {DAYS_ORDER.map(d => {
+                      const isSelected = selectedDays.includes(d);
+                      return (
+                        <TouchableOpacity 
+                          key={d} 
+                          style={[styles.dayBtn, isSelected && styles.typeBtnActive]} 
+                          onPress={() => {
+                            if (isSelected) {
+                              if (selectedDays.length > 1) {
+                                setSelectedDays(prev => prev.filter(day => day !== d));
+                              }
+                            } else {
+                              setSelectedDays(prev => [...prev, d]);
+                            }
+                          }}
+                        >
+                          <Text style={[styles.typeBtnTxt, isSelected && styles.typeBtnTxtActive]}>{d.slice(0, 3)}</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
                   </ScrollView>
 
                   <View style={styles.timeRow}>
                     <View style={{ flex: 1 }}>
                       <Text style={styles.inputLabel}>Start Time</Text>
-                      <TextInput style={styles.formInput} placeholder="09:00" placeholderTextColor={COLORS.textTertiary} value={newStartTime} onChangeText={setNewStartTime} />
+                      <View style={styles.timeInputWrapper}>
+                        <TextInput style={styles.timePartInput} placeholder="10" placeholderTextColor={COLORS.textTertiary} keyboardType="numeric" maxLength={2} value={startHH} onChangeText={setStartHH} />
+                        <Text style={styles.timeColon}>:</Text>
+                        <TextInput style={styles.timePartInput} placeholder="00" placeholderTextColor={COLORS.textTertiary} keyboardType="numeric" maxLength={2} value={startMM} onChangeText={setStartMM} />
+                        <TouchableOpacity style={styles.ampmBtn} onPress={() => setStartAMPM(prev => prev === 'AM' ? 'PM' : 'AM')}>
+                          <Text style={styles.ampmTxt}>{startAMPM}</Text>
+                        </TouchableOpacity>
+                      </View>
                     </View>
+                    <View style={{ width: 16 }} />
                     <View style={{ flex: 1 }}>
                       <Text style={styles.inputLabel}>End Time</Text>
-                      <TextInput style={styles.formInput} placeholder="10:00" placeholderTextColor={COLORS.textTertiary} value={newEndTime} onChangeText={setNewEndTime} />
+                      <View style={styles.timeInputWrapper}>
+                        <TextInput style={styles.timePartInput} placeholder="11" placeholderTextColor={COLORS.textTertiary} keyboardType="numeric" maxLength={2} value={endHH} onChangeText={setEndHH} />
+                        <Text style={styles.timeColon}>:</Text>
+                        <TextInput style={styles.timePartInput} placeholder="30" placeholderTextColor={COLORS.textTertiary} keyboardType="numeric" maxLength={2} value={endMM} onChangeText={setEndMM} />
+                        <TouchableOpacity style={styles.ampmBtn} onPress={() => setEndAMPM(prev => prev === 'AM' ? 'PM' : 'AM')}>
+                          <Text style={styles.ampmTxt}>{endAMPM}</Text>
+                        </TouchableOpacity>
+                      </View>
                     </View>
                   </View>
 
@@ -474,7 +532,16 @@ const TutorTimetableScreen = () => {
                       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
                         {subjectList.map(sub => (
                           <TouchableOpacity key={sub.id} style={[styles.subBtn, newSubjectId === sub.id && styles.typeBtnActive]} onPress={() => setNewSubjectId(sub.id)}>
-                            <Text style={[styles.typeBtnTxt, newSubjectId === sub.id && styles.typeBtnTxtActive]}>{sub.subjectCode}</Text>
+                            <View style={{ flexDirection: 'column', alignItems: 'center' }}>
+                              <Text style={[styles.typeBtnTxt, newSubjectId === sub.id && styles.typeBtnTxtActive]}>{sub.subjectCode} - {sub.name}</Text>
+                              {(() => {
+                                const assignedStaff = sub.assignments?.find((a: any) => a.batchId === batchId)?.staff?.name;
+                                if (assignedStaff) {
+                                  return <Text style={{ fontSize: 10, color: newSubjectId === sub.id ? COLORS.primary : COLORS.textSecondary, marginTop: 4 }}>{assignedStaff}</Text>;
+                                }
+                                return null;
+                              })()}
+                            </View>
                           </TouchableOpacity>
                         ))}
                       </ScrollView>
@@ -492,6 +559,27 @@ const TutorTimetableScreen = () => {
             </TouchableWithoutFeedback>
           </KeyboardAvoidingView>
         </TouchableWithoutFeedback>
+      </Modal>
+
+      {/* Cancel Alert Modal */}
+      <Modal visible={cancelVisible} transparent animationType="fade">
+        <View style={styles.alertOverlay}>
+          <View style={styles.alertBox}>
+            <View style={styles.alertIconWrap}>
+              <Text style={{ fontSize: 24 }}>⚠️</Text>
+            </View>
+            <Text style={styles.alertTitle}>Discard Changes?</Text>
+            <Text style={styles.alertDesc}>Any added or deleted slots will be lost. Are you sure you want to cancel editing?</Text>
+            <View style={styles.alertActions}>
+              <TouchableOpacity style={styles.alertCancelBtn} onPress={() => setCancelVisible(false)}>
+                <Text style={styles.alertCancelTxt}>Keep Editing</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.alertConfirmBtn} onPress={() => { setCancelVisible(false); setIsEditing(false); }}>
+                <Text style={styles.alertConfirmTxt}>Discard</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
       </Modal>
     </View>
   );
@@ -851,18 +939,44 @@ const styles = StyleSheet.create({
   },
   timeRow: {
     flexDirection: 'row',
-    gap: 12,
     marginBottom: 20,
+    alignItems: 'center',
   },
-  formInput: {
-    height: 48,
+  timeInputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: COLORS.background,
     borderRadius: 12,
-    paddingHorizontal: 16,
-    fontSize: 15,
-    color: COLORS.textPrimary,
     borderWidth: 1,
     borderColor: COLORS.border,
+    height: 48,
+    paddingHorizontal: 8,
+  },
+  timePartInput: {
+    fontSize: 15,
+    color: COLORS.textPrimary,
+    textAlign: 'center',
+    minWidth: 28,
+  },
+  timeColon: {
+    fontSize: 16,
+    color: COLORS.textSecondary,
+    fontWeight: '700',
+    marginHorizontal: 4,
+  },
+  ampmBtn: {
+    backgroundColor: COLORS.white,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    marginLeft: 'auto',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  ampmTxt: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: COLORS.primary,
   },
   subBtn: {
     paddingHorizontal: 16,
@@ -896,6 +1010,73 @@ const styles = StyleSheet.create({
   },
   saveBtnText: {
     fontSize: 16,
+    fontWeight: '700',
+    color: COLORS.white,
+  },
+  alertOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  alertBox: {
+    backgroundColor: COLORS.white,
+    borderRadius: 24,
+    padding: 24,
+    width: '100%',
+    alignItems: 'center',
+  },
+  alertIconWrap: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: COLORS.orangeLight,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  alertTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: COLORS.textPrimary,
+    marginBottom: 8,
+  },
+  alertDesc: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 20,
+  },
+  alertActions: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+  },
+  alertCancelBtn: {
+    flex: 1,
+    height: 48,
+    backgroundColor: COLORS.background,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  alertCancelTxt: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: COLORS.textSecondary,
+  },
+  alertConfirmBtn: {
+    flex: 1,
+    height: 48,
+    backgroundColor: COLORS.danger,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  alertConfirmTxt: {
+    fontSize: 15,
     fontWeight: '700',
     color: COLORS.white,
   },
