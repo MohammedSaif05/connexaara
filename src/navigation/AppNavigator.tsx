@@ -8,6 +8,8 @@ import HODDashboardNavigator from './HODDashboardNavigator';
 import TutorDashboardNavigator from './TutorDashboardNavigator';
 import StudentDashboardNavigator from './StudentDashboardNavigator';
 import TutorTimetableScreen from '../screens/tutor/TutorTimetableScreen';
+import HODHackathonsScreen from '../screens/hod/HODHackathonsScreen';
+import TutorHackathonsScreen from '../screens/tutor/TutorHackathonsScreen';
 
 export type RootStackParamList = {
   Splash: undefined;
@@ -16,7 +18,9 @@ export type RootStackParamList = {
   HODDashboard: undefined;
   TutorDashboard: undefined;
   TutorTimetable: undefined;
+  TutorHackathons: undefined;
   StudentDashboard: undefined;
+  HODHackathons: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -36,7 +40,9 @@ export const AppNavigator = () => {
         <Stack.Screen name="HODDashboard" component={HODDashboardNavigator} />
         <Stack.Screen name="TutorDashboard" component={TutorDashboardNavigator} />
         <Stack.Screen name="TutorTimetable" component={TutorTimetableScreen} />
+        <Stack.Screen name="TutorHackathons" component={TutorHackathonsScreen} />
         <Stack.Screen name="StudentDashboard" component={StudentDashboardNavigator} />
+        <Stack.Screen name="HODHackathons" component={HODHackathonsScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

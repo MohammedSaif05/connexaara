@@ -704,3 +704,162 @@ export const rejectOdRequest = (
   remark?: string,
 ): Promise<{ id: string; status: string; currentLevel: string }> =>
   request('PATCH', `/od-requests/${id}/reject`, { remark: remark || '' }, true);
+
+// --- Hackathons ---
+
+export interface Hackathon {
+  id: string;
+  collegeId: string;
+  departmentId: string;
+  name: string;
+  description: string;
+  isGroup: boolean;
+  minSize: number | null;
+  maxSize: number | null;
+  thumbnailUrl: string | null;
+  registrationDeadline: string;
+  hackathonDate: string;
+  createdById: string;
+  createdAt: string;
+  updatedAt: string;
+  _count?: {
+    teams: number;
+  };
+  createdBy?: {
+    id: string;
+    name: string;
+    role: string;
+  };
+}
+
+export interface HackathonProgress {
+  id: string;
+  teamId: string;
+  description: string;
+  date: string;
+  createdAt: string;
+}
+
+export interface HackathonTeamMember {
+  id: string;
+  teamId: string;
+  studentId: string;
+  hackathonId: string;
+  joinedAt: string;
+  student: {
+    id: string;
+    registerNumber: string;
+    user: {
+      name: string;
+    };
+    batch?: {
+      name: string;
+    };
+  };
+}
+
+export interface HackathonTeam {
+  id: string;
+  hackathonId: string;
+  leaderId: string;
+  teamName: string | null;
+  ideaTitle: string;
+  ideaDescription: string;
+  createdAt: string;
+  leader: {
+    registerNumber: string;
+    user: {
+      name: string;
+    };
+  };
+  members?: HackathonTeamMember[];
+  progress?: HackathonProgress[];
+  _count?: {
+    members: number;
+  };
+}
+
+/**
+ * GET /hackathons
+ * Retrieves all hackathons in the user's department.
+ */
+export const getHackathons = (): Promise<Hackathon[]> =>
+  request('GET', '/hackathons', undefined, true);
+
+/**
+ * GET /hackathons/:id
+ * Retrieves hackathon details.
+ */
+export const getHackathonDetails = (id: string): Promise<Hackathon> =>
+  request('GET', `/hackathons/${id}`, undefined, true);
+
+/**
+ * POST /hackathons/:id/register
+ * Student registers for a hackathon.
+ */
+export const registerHackathonTeam = (
+  id: string,
+  payload: { teamName?: string; ideaTitle: string; ideaDescription: string; memberIds?: string[] },
+): Promise<HackathonTeam> =>
+  request('POST', `/hackathons/${id}/register`, payload, true);
+
+/**
+ * GET /hackathons/:id/teams
+ * HOD/Tutor retrieves all registered teams for a hackathon.
+ */
+export const getHackathonTeams = (id: string): Promise<HackathonTeam[]> =>
+  request('GET', `/hackathons/${id}/teams`, undefined, true);
+
+/**
+ * GET /hackathons/student/my-teams
+ * Student retrieves their registered teams.
+ */
+export const getMyTeams = (): Promise<any[]> =>
+  request('GET', `/hackathons/student/my-teams`, undefined, true);
+
+/**
+ * GET /hackathons/teams/:teamId
+ * Retrieve detailed progress and members of a team.
+ */
+export const getTeamDetails = (teamId: string): Promise<HackathonTeam> =>
+  request('GET', `/hackathons/teams/${teamId}`, undefined, true);
+
+/**
+ * POST /hackathons/teams/:teamId/progress
+ * Student member submits a progress update.
+ */
+export const addHackathonProgress = (
+  teamId: string,
+  payload: { description: string; date: string },
+): Promise<HackathonProgress> =>
+  request('POST', `/hackathons/teams/${teamId}/progress`, payload, true);
+
+/**
+ * POST /hackathons
+ * HOD creates a hackathon using FormData (multipart/form-data).
+ */
+export const createHackathon = async (formData: FormData): Promise<Hackathon> => {
+  const headers = await getAuthHeaders();
+  // Ensure we don't accidentally set application/json when uploading FormData
+  delete headers['Content-Type'];
+
+  const response = await fetchWithTimeout(`${BASE_URL}/hackathons`, {
+    method: 'POST',
+    headers,
+    body: formData,
+  });
+
+  const text = await response.text();
+  let json;
+  try {
+    json = JSON.parse(text);
+  } catch (err) {
+    throw new ApiError(response.status, 'Invalid JSON from server');
+  }
+
+  if (!response.ok) {
+    throw new ApiError(response.status, json.message || 'An error occurred');
+  }
+
+  return json;
+};

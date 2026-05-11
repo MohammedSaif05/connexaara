@@ -4,6 +4,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from '@react-native-community/blur';
 import NotificationIcon from '../../assets/svg/notification.svg';
 import { getAuthData } from '../../services/storage';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 const COLORS = {
   background: '#F5F7FA',
@@ -12,10 +14,13 @@ const COLORS = {
   white: '#FFFFFF',
   purple: '#7B61FF',
   purpleLight: '#F0EDFF',
+  orange: '#FF9800',
+  orangeLight: '#FFF0D4',
 };
 
 const HODHomeScreen = () => {
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation<NativeStackNavigationProp<any>>();
   const [userName, setUserName] = useState('');
   const [deptName, setDeptName] = useState('');
 
@@ -65,7 +70,21 @@ const HODHomeScreen = () => {
       </View>
 
       <View style={styles.content}>
-        <Text style={styles.subtitle}>Welcome to the Home Screen</Text>
+        <Text style={styles.sectionTitle}>Dashboard Hub</Text>
+        <View style={styles.grid}>
+          {/* Hackathons Card */}
+          <TouchableOpacity 
+            style={[styles.card, { backgroundColor: COLORS.orangeLight }]} 
+            activeOpacity={0.8}
+            onPress={() => navigation.navigate('HODHackathons')}
+          >
+            <View style={[styles.iconContainer, { backgroundColor: COLORS.orange }]}>
+              <Text style={styles.iconText}>🏆</Text>
+            </View>
+            <Text style={styles.cardTitle}>Hackathons</Text>
+            <Text style={styles.cardSubtitle}>Manage events</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </View>
   );
@@ -182,12 +201,53 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
   },
-  subtitle: {
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: COLORS.textPrimary,
+    marginBottom: 16,
+    letterSpacing: -0.5,
+  },
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 16,
+  },
+  card: {
+    width: '47%',
+    borderRadius: 24,
+    padding: 20,
+    justifyContent: 'center',
+    alignItems: 'flex-start',
+    shadowColor: COLORS.textPrimary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 2,
+  },
+  iconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  iconText: {
+    fontSize: 24,
+  },
+  cardTitle: {
     fontSize: 16,
+    fontWeight: '700',
+    color: COLORS.textPrimary,
+    marginBottom: 4,
+  },
+  cardSubtitle: {
+    fontSize: 12,
     color: COLORS.textSecondary,
-    marginTop: 20,
+    fontWeight: '500',
   },
 });
 

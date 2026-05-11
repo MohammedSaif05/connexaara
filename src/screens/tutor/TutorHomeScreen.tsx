@@ -304,6 +304,20 @@ const TutorHomeScreen = () => {
             <Text style={styles.actionDesc}>Manage your batch schedule</Text>
           </View>
         </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.actionCard}
+          activeOpacity={0.8}
+          onPress={() => navigation.navigate('TutorHackathons')}
+        >
+          <View style={[styles.iconContainer, { backgroundColor: COLORS.orangeLight }]}>
+            <Text style={{ fontSize: 24 }}>🏆</Text>
+          </View>
+          <View style={styles.actionTextContainer}>
+            <Text style={styles.actionTitle}>Hackathons</Text>
+            <Text style={styles.actionDesc}>Monitor participating teams</Text>
+          </View>
+        </TouchableOpacity>
       </ScrollView>
     </View>
   );
