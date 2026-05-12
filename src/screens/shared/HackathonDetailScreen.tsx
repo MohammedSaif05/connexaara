@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import BackIcon from '../../assets/svg/back.svg';
 import EditIcon from '../../assets/svg/edit.svg';
+import DeleteIcon from '../../assets/svg/delete.svg';
 import { HackathonTeam, getHackathonTeams, deleteHackathon } from '../../services/api';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -83,7 +84,7 @@ const HackathonDetailScreen = ({ route }: any) => {
                 <EditIcon width={20} height={20} fill={COLORS.textPrimary} />
               </TouchableOpacity>
               <TouchableOpacity onPress={handleDelete} style={{ padding: 8, marginLeft: 4 }}>
-                <Text style={{ fontSize: 18 }}>🗑️</Text>
+                <DeleteIcon width={20} height={20} fill={COLORS.textPrimary} />
               </TouchableOpacity>
             </View>
           ) : (
