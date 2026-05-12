@@ -136,6 +136,60 @@ const request = async <T>(
 export const login = (email: string, password: string): Promise<LoginResponse> =>
   request<LoginResponse>('POST', '/auth/login', { email, password });
 
+// --- User Profile Endpoints ---
+
+export interface UserProfile {
+  id: string;
+  name: string;
+  email: string;
+  role: 'HOD' | 'STAFF' | 'STUDENT';
+  isTutor: boolean;
+  isActive: boolean;
+  profileImageUrl: string | null;
+  phoneNumber: string | null;
+  bio: string | null;
+  department: { id: string; name: string } | null;
+  college: { id: string; name: string } | null;
+}
+
+export const getProfile = (): Promise<UserProfile> =>
+  request<UserProfile>('GET', '/users/me', undefined, true);
+
+export const updateProfile = async (data: { name?: string; phoneNumber?: string; bio?: string; file?: any }): Promise<UserProfile> => {
+  const authData = await getAuthData();
+  const headers: Record<string, string> = {};
+  if (authData?.token) headers.Authorization = `Bearer ${authData.token}`;
+
+  const formData = new FormData();
+  if (data.name) formData.append('name', data.name);
+  if (data.phoneNumber) formData.append('phoneNumber', data.phoneNumber);
+  if (data.bio) formData.append('bio', data.bio);
+  if (data.file) {
+    formData.append('file', {
+      uri: data.file.uri,
+      type: data.file.type,
+      name: data.file.fileName || 'profile.jpg',
+    } as any);
+  }
+
+  const response = await fetch(`${BASE_URL}/users/me`, {
+    method: 'PATCH',
+    headers,
+    body: formData,
+  });
+
+  const resData = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new ApiError(response.status, resData.message || 'Failed to update profile');
+  }
+
+  return resData;
+};
+
+export const changePassword = (currentPassword: string, newPassword: string): Promise<{ message: string }> =>
+  request<{ message: string }>('PATCH', '/users/me/password', { currentPassword, newPassword }, true);
+
 // --- Staff Endpoints ---
 
 export interface StaffMember {

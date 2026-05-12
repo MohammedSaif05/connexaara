@@ -119,6 +119,13 @@ export const clearAuthData = async (): Promise<void> => {
   await AsyncStorage.removeItem(KEYS.USER_ROLE);
   await AsyncStorage.removeItem(KEYS.IS_TUTOR);
   await AsyncStorage.removeItem(KEYS.USER_ID);
+  await AsyncStorage.removeItem(KEYS.USER_NAME);
+  await AsyncStorage.removeItem(KEYS.USER_EMAIL);
+  await AsyncStorage.removeItem(KEYS.DEPT_NAME);
+  await AsyncStorage.removeItem(KEYS.DEPT_ID);
+  await AsyncStorage.removeItem(KEYS.BATCH_ID);
+  await AsyncStorage.removeItem(KEYS.BATCH_NAME);
+  await AsyncStorage.removeItem(KEYS.CURRENT_SEMESTER);
 };
 
 // --- Token Utilities ---
