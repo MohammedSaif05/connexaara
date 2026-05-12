@@ -818,11 +818,18 @@ export const getMyTeams = (): Promise<any[]> =>
   request('GET', `/hackathons/student/my-teams`, undefined, true);
 
 /**
- * GET /hackathons/department-students
- * Fetch batches and active students of the department for hackathon team selection.
+ * GET /hackathons/department-batches
+ * Fetch batches of the department for hackathon team selection.
  */
-export const getDepartmentStudents = (): Promise<any[]> =>
-  request('GET', `/hackathons/department-students`, undefined, true);
+export const getDepartmentBatches = (): Promise<any[]> =>
+  request('GET', `/hackathons/department-batches`, undefined, true);
+
+/**
+ * GET /hackathons/batches/:batchId/students
+ * Fetch active students for a batch with pagination.
+ */
+export const getBatchStudents = (batchId: string, page: number = 1, limit: number = 20): Promise<any> =>
+  request('GET', `/hackathons/batches/${batchId}/students?page=${page}&limit=${limit}`, undefined, true);
 
 /**
  * GET /hackathons/teams/:teamId

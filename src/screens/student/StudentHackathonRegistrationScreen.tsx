@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Alert, TextInput, Modal } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import BackIcon from '../../assets/svg/back.svg';
-import { getDepartmentStudents, registerHackathonTeam } from '../../services/api';
+import DropdownIcon from '../../assets/svg/dropdown.svg';
+import { getDepartmentBatches, getBatchStudents, registerHackathonTeam } from '../../services/api';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
@@ -30,6 +31,12 @@ const StudentHackathonRegistrationScreen = ({ route }: any) => {
   const [loadingBatches, setLoadingBatches] = useState(false);
   
   const [expandedBatch, setExpandedBatch] = useState<string | null>(null);
+  
+  // State for storing students per batch
+  const [batchStudents, setBatchStudents] = useState<Record<string, any[]>>({});
+  // State for pagination per batch
+  const [batchPagination, setBatchPagination] = useState<Record<string, { page: number, hasMore: boolean, loading: boolean }>>({});
+  
   const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -37,19 +44,60 @@ const StudentHackathonRegistrationScreen = ({ route }: any) => {
 
   useEffect(() => {
     if (hackathon.isGroup) {
-      fetchDepartmentStudents();
+      fetchDepartmentBatches();
     }
   }, []);
 
-  const fetchDepartmentStudents = async () => {
+  const fetchDepartmentBatches = async () => {
     try {
       setLoadingBatches(true);
-      const data = await getDepartmentStudents();
+      const data = await getDepartmentBatches();
       setBatches(data);
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to load department students');
+      Alert.alert('Error', err.message || 'Failed to load department batches');
     } finally {
       setLoadingBatches(false);
+    }
+  };
+
+  const handleExpandBatch = async (batchId: string) => {
+    if (expandedBatch === batchId) {
+      setExpandedBatch(null);
+      return;
+    }
+    
+    setExpandedBatch(batchId);
+    
+    // If we haven't loaded this batch's students yet, fetch page 1
+    if (!batchStudents[batchId]) {
+      loadStudents(batchId, 1);
+    }
+  };
+
+  const loadStudents = async (batchId: string, page: number) => {
+    try {
+      setBatchPagination(prev => ({
+        ...prev,
+        [batchId]: { ...prev[batchId], loading: true }
+      }));
+      
+      const response = await getBatchStudents(batchId, page, 20);
+      
+      setBatchStudents(prev => ({
+        ...prev,
+        [batchId]: page === 1 ? response.students : [...(prev[batchId] || []), ...response.students]
+      }));
+      
+      setBatchPagination(prev => ({
+        ...prev,
+        [batchId]: { page, hasMore: response.hasMore, loading: false }
+      }));
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Failed to load students');
+      setBatchPagination(prev => ({
+        ...prev,
+        [batchId]: { ...prev[batchId], loading: false }
+      }));
     }
   };
 
@@ -146,49 +194,76 @@ const StudentHackathonRegistrationScreen = ({ route }: any) => {
             ) : batches.length === 0 ? (
               <Text style={styles.emptyTxt}>No batches found in your department.</Text>
             ) : (
-              batches.map(batch => (
-                <View key={batch.id} style={styles.batchContainer}>
-                  <TouchableOpacity 
-                    style={styles.batchHeader} 
-                    activeOpacity={0.7} 
-                    onPress={() => setExpandedBatch(expandedBatch === batch.id ? null : batch.id)}
-                  >
-                    <View>
-                      <Text style={styles.batchName}>{batch.name}</Text>
-                      <Text style={styles.batchSem}>Semester {batch.currentSemester}</Text>
-                    </View>
-                    <Text style={styles.expandIcon}>{expandedBatch === batch.id ? '▲' : '▼'}</Text>
-                  </TouchableOpacity>
+              batches.map(batch => {
+                const isExpanded = expandedBatch === batch.id;
+                const students = batchStudents[batch.id] || [];
+                const pagination = batchPagination[batch.id] || { loading: false, hasMore: false, page: 1 };
+                
+                return (
+                  <View key={batch.id} style={styles.batchContainer}>
+                    <TouchableOpacity 
+                      style={styles.batchHeader} 
+                      activeOpacity={0.7} 
+                      onPress={() => handleExpandBatch(batch.id)}
+                    >
+                      <View>
+                        <Text style={styles.batchName}>{batch.name}</Text>
+                        <Text style={styles.batchSem}>Semester {batch.currentSemester}</Text>
+                      </View>
+                      <View style={{ transform: [{ rotate: isExpanded ? '180deg' : '0deg' }] }}>
+                        <DropdownIcon width={20} height={20} fill={COLORS.textSecondary} />
+                      </View>
+                    </TouchableOpacity>
 
-                  {expandedBatch === batch.id && (
-                    <View style={styles.studentsList}>
-                      {batch.students.length === 0 ? (
-                        <Text style={styles.emptyTxt}>No active students in this batch.</Text>
-                      ) : (
-                        batch.students.map((student: any) => {
-                          const isSelected = selectedMembers.includes(student.id);
-                          return (
-                            <TouchableOpacity 
-                              key={student.id} 
-                              style={[styles.studentRow, isSelected && { backgroundColor: colorTheme.light, borderColor: colorTheme.main }]} 
-                              activeOpacity={0.7}
-                              onPress={() => toggleMember(student.id)}
-                            >
-                              <View>
-                                <Text style={[styles.studentName, isSelected && { color: colorTheme.main }]}>{student.user.name}</Text>
-                                <Text style={styles.studentReg}>{student.registerNumber}</Text>
-                              </View>
-                              <View style={[styles.checkbox, isSelected && { backgroundColor: colorTheme.main, borderColor: colorTheme.main }]}>
-                                {isSelected && <Text style={styles.checkTxt}>✓</Text>}
-                              </View>
-                            </TouchableOpacity>
-                          );
-                        })
-                      )}
-                    </View>
-                  )}
-                </View>
-              ))
+                    {isExpanded && (
+                      <View style={styles.studentsList}>
+                        {pagination.loading && students.length === 0 ? (
+                           <ActivityIndicator size="small" color={colorTheme.main} style={{ padding: 16 }} />
+                        ) : students.length === 0 ? (
+                          <Text style={styles.emptyTxt}>No active students in this batch.</Text>
+                        ) : (
+                          <>
+                            {students.map((student: any) => {
+                              const isSelected = selectedMembers.includes(student.id);
+                              return (
+                                <TouchableOpacity 
+                                  key={student.id} 
+                                  style={[styles.studentRow, isSelected && { backgroundColor: colorTheme.light, borderColor: colorTheme.main }]} 
+                                  activeOpacity={0.7}
+                                  onPress={() => toggleMember(student.id)}
+                                >
+                                  <View>
+                                    <Text style={[styles.studentName, isSelected && { color: colorTheme.main }]}>{student.user.name}</Text>
+                                    <Text style={styles.studentReg}>{student.registerNumber}</Text>
+                                  </View>
+                                  <View style={[styles.checkbox, isSelected && { backgroundColor: colorTheme.main, borderColor: colorTheme.main }]}>
+                                    {isSelected && <Text style={styles.checkTxt}>✓</Text>}
+                                  </View>
+                                </TouchableOpacity>
+                              );
+                            })}
+                            
+                            {/* Pagination Load More Button */}
+                            {pagination.hasMore && (
+                              <TouchableOpacity 
+                                style={styles.loadMoreBtn} 
+                                onPress={() => loadStudents(batch.id, pagination.page + 1)}
+                                disabled={pagination.loading}
+                              >
+                                {pagination.loading ? (
+                                  <ActivityIndicator size="small" color={colorTheme.main} />
+                                ) : (
+                                  <Text style={[styles.loadMoreTxt, { color: colorTheme.main }]}>Load More Students</Text>
+                                )}
+                              </TouchableOpacity>
+                            )}
+                          </>
+                        )}
+                      </View>
+                    )}
+                  </View>
+                );
+              })
             )}
           </View>
         )}
@@ -261,6 +336,9 @@ const styles = StyleSheet.create({
   checkbox: { width: 24, height: 24, borderRadius: 6, borderWidth: 2, borderColor: COLORS.textSecondary, justifyContent: 'center', alignItems: 'center' },
   checkTxt: { color: COLORS.white, fontSize: 14, fontWeight: '800' },
   
+  loadMoreBtn: { padding: 16, alignItems: 'center', justifyContent: 'center', borderBottomWidth: 1, borderBottomColor: COLORS.border },
+  loadMoreTxt: { fontSize: 14, fontWeight: '700' },
+
   emptyTxt: { textAlign: 'center', color: COLORS.textSecondary, padding: 16, fontStyle: 'italic' },
 
   submitBtn: { height: 56, borderRadius: 16, justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.15, shadowRadius: 12, elevation: 6 },
