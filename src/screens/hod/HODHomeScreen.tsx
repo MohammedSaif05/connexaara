@@ -84,6 +84,19 @@ const HODHomeScreen = () => {
             <Text style={styles.cardTitle}>Hackathons</Text>
             <Text style={styles.cardSubtitle}>Manage events</Text>
           </TouchableOpacity>
+
+          {/* Events Card */}
+          <TouchableOpacity 
+            style={[styles.card, { backgroundColor: 'rgba(123, 97, 255, 0.1)' }]} 
+            activeOpacity={0.8}
+            onPress={() => navigation.navigate('HODEvents')}
+          >
+            <View style={[styles.iconContainer, { backgroundColor: COLORS.purple }]}>
+              <Text style={styles.iconText}>📅</Text>
+            </View>
+            <Text style={styles.cardTitle}>Events</Text>
+            <Text style={styles.cardSubtitle}>Manage college events</Text>
+          </TouchableOpacity>
         </View>
       </View>
     </View>

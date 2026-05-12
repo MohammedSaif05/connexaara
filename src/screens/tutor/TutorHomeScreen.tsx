@@ -318,6 +318,20 @@ const TutorHomeScreen = () => {
             <Text style={styles.actionDesc}>Monitor participating teams</Text>
           </View>
         </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.actionCard}
+          activeOpacity={0.8}
+          onPress={() => navigation.navigate('TutorEvents')}
+        >
+          <View style={[styles.iconContainer, { backgroundColor: 'rgba(123, 97, 255, 0.1)' }]}>
+            <Text style={{ fontSize: 24 }}>📅</Text>
+          </View>
+          <View style={styles.actionTextContainer}>
+            <Text style={styles.actionTitle}>Events</Text>
+            <Text style={styles.actionDesc}>View college events</Text>
+          </View>
+        </TouchableOpacity>
       </ScrollView>
     </View>
   );

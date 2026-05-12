@@ -14,7 +14,11 @@ import HackathonDetailScreen from '../screens/shared/HackathonDetailScreen';
 import TeamDetailScreen from '../screens/shared/TeamDetailScreen';
 import EditHackathonScreen from '../screens/hod/EditHackathonScreen';
 import StudentHackathonRegistrationScreen from '../screens/student/StudentHackathonRegistrationScreen';
-import { Hackathon } from '../services/api';
+import HODEventsScreen from '../screens/hod/HODEventsScreen';
+import TutorEventsScreen from '../screens/tutor/TutorEventsScreen';
+import EventDetailScreen from '../screens/shared/EventDetailScreen';
+import EditEventScreen from '../screens/hod/EditEventScreen';
+import { Hackathon, Event } from '../services/api';
 
 export type RootStackParamList = {
   Splash: undefined;
@@ -30,6 +34,10 @@ export type RootStackParamList = {
   TeamDetail: { teamId: string; role: 'HOD' | 'TUTOR' | 'STUDENT'; colorTheme: { main: string; light: string } };
   EditHackathon: { hackathon: Hackathon };
   StudentHackathonRegistration: { hackathon: Hackathon; colorTheme: { main: string; light: string } };
+  HODEvents: undefined;
+  TutorEvents: undefined;
+  EventDetail: { event: Event; role: 'HOD' | 'TUTOR' | 'STUDENT'; colorTheme: { main: string; light: string } };
+  EditEvent: { event: Event };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -56,6 +64,10 @@ export const AppNavigator = () => {
         <Stack.Screen name="TeamDetail" component={TeamDetailScreen} />
         <Stack.Screen name="EditHackathon" component={EditHackathonScreen} />
         <Stack.Screen name="StudentHackathonRegistration" component={StudentHackathonRegistrationScreen} />
+        <Stack.Screen name="HODEvents" component={HODEventsScreen} />
+        <Stack.Screen name="TutorEvents" component={TutorEventsScreen} />
+        <Stack.Screen name="EventDetail" component={EventDetailScreen} />
+        <Stack.Screen name="EditEvent" component={EditEventScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

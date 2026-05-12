@@ -931,3 +931,96 @@ export const createHackathon = async (formData: FormData): Promise<Hackathon> =>
 
   return json;
 };
+
+// --- Events ---
+
+export interface Event {
+  id: string;
+  collegeId: string;
+  departmentId: string;
+  name: string;
+  description: string;
+  thumbnailUrl: string | null;
+  startDate: string;
+  endDate: string;
+  createdById: string;
+  createdAt: string;
+  updatedAt: string;
+  department?: {
+    name: string;
+  };
+}
+
+export const getEvents = (): Promise<Event[]> =>
+  request('GET', '/events', undefined, true);
+
+export const getEventDetails = (id: string): Promise<Event> =>
+  request('GET', `/events/${id}`, undefined, true);
+
+export const createEvent = async (formData: FormData): Promise<Event> => {
+  const headers = await getAuthHeaders();
+  delete headers['Content-Type'];
+
+  const response = await fetchWithTimeout(`${BASE_URL}/events`, {
+    method: 'POST',
+    headers,
+    body: formData,
+  });
+
+  const text = await response.text();
+  let json;
+  try {
+    json = JSON.parse(text);
+  } catch (err) {
+    throw new ApiError(response.status, 'Invalid JSON from server');
+  }
+
+  if (!response.ok) {
+    throw new ApiError(response.status, json.message || 'An error occurred');
+  }
+
+  return json;
+};
+
+export const updateEvent = async (id: string, payload: any): Promise<Event> => {
+  const headers = await getAuthHeaders();
+  delete headers['Content-Type'];
+
+  const formData = new FormData();
+  if (payload.name) formData.append('name', payload.name);
+  if (payload.description) formData.append('description', payload.description);
+  if (payload.startDate) formData.append('startDate', payload.startDate);
+  if (payload.endDate) formData.append('endDate', payload.endDate);
+  
+  if (payload.thumbnail) {
+    formData.append('thumbnail', {
+      uri: payload.thumbnail.uri,
+      type: payload.thumbnail.type || 'image/jpeg',
+      name: payload.thumbnail.fileName || 'thumbnail.jpg',
+    } as any);
+  }
+
+  const response = await fetchWithTimeout(`${BASE_URL}/events/${id}`, {
+    method: 'PATCH',
+    headers,
+    body: formData,
+  });
+
+  const text = await response.text();
+  let json;
+  try {
+    json = JSON.parse(text);
+  } catch (err) {
+    throw new ApiError(response.status, 'Invalid JSON from server');
+  }
+
+  if (!response.ok) {
+    throw new ApiError(response.status, json.message || 'An error occurred');
+  }
+
+  return json;
+};
+
+export const deleteEvent = (id: string): Promise<{ message: string }> =>
+  request('DELETE', `/events/${id}`, undefined, true);
+
