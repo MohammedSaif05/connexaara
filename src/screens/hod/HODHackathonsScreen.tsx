@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from '@react-native-community/blur';
 import { launchImageLibrary } from 'react-native-image-picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import BackIcon from '../../assets/svg/back.svg';
 import { Hackathon, HackathonTeam, getHackathons, getHackathonTeams, createHackathon } from '../../services/api';
 
 const COLORS = {
@@ -24,9 +25,6 @@ const HODHackathonsScreen = ({ navigation }: any) => {
   // List State
   const [hackathons, setHackathons] = useState<Hackathon[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedHackathon, setSelectedHackathon] = useState<Hackathon | null>(null);
-  const [teams, setTeams] = useState<HackathonTeam[]>([]);
-  const [loadingTeams, setLoadingTeams] = useState(false);
 
   // Form State
   const [name, setName] = useState('');
@@ -42,6 +40,7 @@ const HODHackathonsScreen = ({ navigation }: any) => {
   const [showHackPicker, setShowHackPicker] = useState(false);
   
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   useEffect(() => {
     if (activeTab === 'LIST') fetchHackathons();
@@ -59,17 +58,12 @@ const HODHackathonsScreen = ({ navigation }: any) => {
     }
   };
 
-  const handleSelectHackathon = async (h: Hackathon) => {
-    setSelectedHackathon(h);
-    try {
-      setLoadingTeams(true);
-      const teamData = await getHackathonTeams(h.id);
-      setTeams(teamData);
-    } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to load teams');
-    } finally {
-      setLoadingTeams(false);
-    }
+  const handleSelectHackathon = (h: Hackathon) => {
+    navigation.navigate('HackathonDetail', {
+      hackathon: h,
+      role: 'HOD',
+      colorTheme: { main: COLORS.orange, light: COLORS.orangeLight }
+    });
   };
 
   const pickImage = async () => {
@@ -110,11 +104,12 @@ const HODHackathonsScreen = ({ navigation }: any) => {
       }
 
       await createHackathon(formData);
-      Alert.alert('Success', 'Hackathon created successfully!');
       
       // Reset form
       setName(''); setDescription(''); setIsGroup(false); setThumbnail(null);
-      setActiveTab('LIST');
+      
+      // Show success modal instead of alert
+      setShowSuccessModal(true);
     } catch (err: any) {
       Alert.alert('Error', err.message || 'Failed to create hackathon');
     } finally {
@@ -128,7 +123,7 @@ const HODHackathonsScreen = ({ navigation }: any) => {
       <View style={[styles.header, { paddingTop: Math.max(insets.top, 20) }]}>
         <View style={styles.headerRow}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-            <Text style={styles.backTxt}>←</Text>
+            <BackIcon width={24} height={24} fill={COLORS.textPrimary} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Hackathons</Text>
           <View style={{ width: 40 }} />
@@ -252,42 +247,25 @@ const HODHackathonsScreen = ({ navigation }: any) => {
           </ScrollView>
         )}
       </View>
-
-      {/* Team Details Modal */}
-      <Modal visible={!!selectedHackathon} transparent animationType="slide" statusBarTranslucent>
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { paddingBottom: Math.max(insets.bottom, 20) }]}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Registered Teams</Text>
-              <TouchableOpacity onPress={() => setSelectedHackathon(null)} style={styles.closeBtn}>
-                <Text style={styles.closeTxt}>✕</Text>
-              </TouchableOpacity>
+      <Modal visible={showSuccessModal} transparent animationType="fade" statusBarTranslucent>
+        <View style={styles.successModalOverlay}>
+          <View style={styles.successModalContent}>
+            <View style={styles.successIconContainer}>
+              <Text style={styles.successIconTxt}>🎉</Text>
             </View>
-
-            {loadingTeams ? (
-              <ActivityIndicator size="large" color={COLORS.orange} style={{ margin: 40 }} />
-            ) : (
-              <ScrollView>
-                {teams.length === 0 ? (
-                  <Text style={styles.emptyTxt}>No teams registered yet.</Text>
-                ) : (
-                  teams.map(t => (
-                    <View key={t.id} style={styles.teamCard}>
-                      <Text style={styles.teamName}>{t.teamName || 'Solo Participant'}</Text>
-                      <Text style={styles.ideaTitle}>{t.ideaTitle}</Text>
-                      <Text style={styles.ideaDesc}>{t.ideaDescription}</Text>
-                      
-                      <View style={styles.teamStats}>
-                        <Text style={styles.teamStatTxt}>Leader: {t.leader.user.name}</Text>
-                        {t._count && t._count.members > 1 && (
-                          <Text style={styles.teamStatTxt}>Members: {t._count.members}</Text>
-                        )}
-                      </View>
-                    </View>
-                  ))
-                )}
-              </ScrollView>
-            )}
+            <Text style={styles.successTitle}>Awesome!</Text>
+            <Text style={styles.successDesc}>Your hackathon has been created successfully. Students can now view and register for it.</Text>
+            
+            <TouchableOpacity 
+              style={styles.successBtn} 
+              activeOpacity={0.8}
+              onPress={() => {
+                setShowSuccessModal(false);
+                setActiveTab('LIST');
+              }}
+            >
+              <Text style={styles.successBtnTxt}>View Hackathons</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -299,8 +277,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
   header: { backgroundColor: COLORS.white, paddingHorizontal: 20, borderBottomWidth: 1, borderBottomColor: COLORS.border },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-  backBtn: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.background, borderRadius: 20 },
-  backTxt: { fontSize: 20, color: COLORS.textPrimary },
+  backBtn: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
   headerTitle: { fontSize: 20, fontWeight: '800', color: COLORS.textPrimary },
   tabContainer: { flexDirection: 'row', backgroundColor: COLORS.background, borderRadius: 12, padding: 4, marginBottom: 16 },
   tab: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 10 },
@@ -334,18 +311,14 @@ const styles = StyleSheet.create({
   submitBtn: { backgroundColor: COLORS.orange, height: 50, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
   submitBtnTxt: { color: COLORS.white, fontSize: 16, fontWeight: '700' },
 
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  modalContent: { backgroundColor: COLORS.white, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, maxHeight: '80%' },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-  modalTitle: { fontSize: 20, fontWeight: '700', color: COLORS.textPrimary },
-  closeBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: COLORS.background, justifyContent: 'center', alignItems: 'center' },
-  closeTxt: { fontSize: 16, color: COLORS.textSecondary, fontWeight: '600' },
-  teamCard: { backgroundColor: COLORS.background, borderRadius: 12, padding: 16, marginBottom: 12 },
-  teamName: { fontSize: 16, fontWeight: '700', color: COLORS.textPrimary, marginBottom: 4 },
-  ideaTitle: { fontSize: 14, fontWeight: '600', color: COLORS.orange, marginBottom: 4 },
-  ideaDesc: { fontSize: 13, color: COLORS.textSecondary, marginBottom: 12 },
-  teamStats: { flexDirection: 'row', gap: 12, borderTopWidth: 1, borderTopColor: COLORS.border, paddingTop: 10 },
-  teamStatTxt: { fontSize: 12, fontWeight: '600', color: COLORS.textPrimary },
+  successModalOverlay: { flex: 1, backgroundColor: 'rgba(27, 42, 74, 0.8)', justifyContent: 'center', alignItems: 'center', padding: 24 },
+  successModalContent: { width: '100%', backgroundColor: COLORS.white, borderRadius: 28, padding: 32, alignItems: 'center', shadowColor: COLORS.orange, shadowOffset: { width: 0, height: 20 }, shadowOpacity: 0.15, shadowRadius: 30, elevation: 10 },
+  successIconContainer: { width: 80, height: 80, borderRadius: 40, backgroundColor: COLORS.orangeLight, justifyContent: 'center', alignItems: 'center', marginBottom: 24, borderWidth: 4, borderColor: COLORS.white, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 10 },
+  successIconTxt: { fontSize: 40 },
+  successTitle: { fontSize: 28, fontWeight: '800', color: COLORS.textPrimary, marginBottom: 12, textAlign: 'center', letterSpacing: -0.5 },
+  successDesc: { fontSize: 15, color: COLORS.textSecondary, textAlign: 'center', lineHeight: 22, marginBottom: 32, paddingHorizontal: 10 },
+  successBtn: { width: '100%', height: 56, backgroundColor: COLORS.orange, borderRadius: 16, justifyContent: 'center', alignItems: 'center', shadowColor: COLORS.orange, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 6 },
+  successBtnTxt: { fontSize: 18, fontWeight: '700', color: COLORS.white },
 });
 
 export default HODHackathonsScreen;

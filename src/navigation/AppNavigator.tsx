@@ -10,6 +10,9 @@ import StudentDashboardNavigator from './StudentDashboardNavigator';
 import TutorTimetableScreen from '../screens/tutor/TutorTimetableScreen';
 import HODHackathonsScreen from '../screens/hod/HODHackathonsScreen';
 import TutorHackathonsScreen from '../screens/tutor/TutorHackathonsScreen';
+import HackathonDetailScreen from '../screens/shared/HackathonDetailScreen';
+import TeamDetailScreen from '../screens/shared/TeamDetailScreen';
+import { Hackathon } from '../services/api';
 
 export type RootStackParamList = {
   Splash: undefined;
@@ -21,6 +24,8 @@ export type RootStackParamList = {
   TutorHackathons: undefined;
   StudentDashboard: undefined;
   HODHackathons: undefined;
+  HackathonDetail: { hackathon: Hackathon; role: 'HOD' | 'TUTOR' | 'STUDENT'; colorTheme: { main: string; light: string } };
+  TeamDetail: { teamId: string; role: 'HOD' | 'TUTOR' | 'STUDENT'; colorTheme: { main: string; light: string } };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -43,6 +48,8 @@ export const AppNavigator = () => {
         <Stack.Screen name="TutorHackathons" component={TutorHackathonsScreen} />
         <Stack.Screen name="StudentDashboard" component={StudentDashboardNavigator} />
         <Stack.Screen name="HODHackathons" component={HODHackathonsScreen} />
+        <Stack.Screen name="HackathonDetail" component={HackathonDetailScreen} />
+        <Stack.Screen name="TeamDetail" component={TeamDetailScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );
