@@ -87,7 +87,7 @@ const HODHomeScreen = () => {
 
           {/* Events Card */}
           <TouchableOpacity 
-            style={[styles.card, { backgroundColor: 'rgba(123, 97, 255, 0.1)' }]} 
+            style={[styles.card, { backgroundColor: COLORS.purpleLight }]} 
             activeOpacity={0.8}
             onPress={() => navigation.navigate('HODEvents')}
           >
@@ -233,34 +233,43 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     padding: 20,
     justifyContent: 'center',
-    alignItems: 'flex-start',
+    alignItems: 'center', // Center aligned
     shadowColor: COLORS.textPrimary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 3,
   },
   iconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
+    width: 64, // Bigger icon container
+    height: 64,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 2,
   },
   iconText: {
-    fontSize: 24,
+    fontSize: 32, // Bigger icon text
   },
   cardTitle: {
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: 17,
+    fontWeight: '800',
     color: COLORS.textPrimary,
-    marginBottom: 4,
+    marginBottom: 6,
+    textAlign: 'center',
+    letterSpacing: -0.3,
   },
   cardSubtitle: {
     fontSize: 12,
     color: COLORS.textSecondary,
     fontWeight: '500',
+    textAlign: 'center',
+    lineHeight: 16,
   },
 });
 

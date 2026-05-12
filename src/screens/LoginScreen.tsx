@@ -119,15 +119,22 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
         currentSemester: response.user.batch?.currentSemester ?? null,
       });
 
-      // Navigate to the correct dashboard immediately and wipe the auth stack
-      const route = getDashboardRoute(response.user.role, response.user.isTutor);
-      navigation.reset({ index: 0, routes: [{ name: route }] });
+      // Clear loading state first so the BlurView is unmounted natively
+      setIsLoading(false);
 
-      // Show success toast after navigation (ToastContext is global, renders on new screen)
-      const lastName = response.user.name.trim().split(' ').pop() ?? response.user.name;
-      showToast(`Welcome back, ${lastName}!`, 'success');
+      // Add a tiny delay to allow Android to clean up the BlurView overlay
+      setTimeout(() => {
+        // Navigate to the correct dashboard immediately and wipe the auth stack
+        const route = getDashboardRoute(response.user.role, response.user.isTutor);
+        navigation.reset({ index: 0, routes: [{ name: route }] });
+
+        // Show success toast after navigation (ToastContext is global, renders on new screen)
+        const lastName = response.user.name.trim().split(' ').pop() ?? response.user.name;
+        showToast(`Welcome back, ${lastName}!`, 'success');
+      }, 50);
 
     } catch (err) {
+      setIsLoading(false);
       if (err instanceof ApiError) {
         if (err.statusCode === 401 || err.statusCode === 403) {
           setErrorMessage('Invalid email or password. Please try again.');
@@ -140,8 +147,6 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
       } else {
         setErrorMessage('An unexpected error occurred. Please try again.');
       }
-    } finally {
-      setIsLoading(false);
     }
   };
 
