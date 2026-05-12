@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, ActivityIndicator, Alert, Modal, Image, Switch, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, ActivityIndicator, Alert, Modal, Image, Switch, Platform, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from '@react-native-community/blur';
 import { launchImageLibrary } from 'react-native-image-picker';
@@ -25,6 +25,7 @@ const HODHackathonsScreen = ({ navigation }: any) => {
   // List State
   const [hackathons, setHackathons] = useState<Hackathon[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   // Form State
   const [name, setName] = useState('');
@@ -55,6 +56,18 @@ const HODHackathonsScreen = ({ navigation }: any) => {
       Alert.alert('Error', err.message || 'Failed to load hackathons');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try {
+      const data = await getHackathons();
+      setHackathons(data);
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Failed to refresh hackathons');
+    } finally {
+      setRefreshing(false);
     }
   };
 
@@ -151,7 +164,10 @@ const HODHackathonsScreen = ({ navigation }: any) => {
           loading ? (
             <ActivityIndicator size="large" color={COLORS.orange} style={{ marginTop: 40 }} />
           ) : (
-            <ScrollView contentContainerStyle={styles.scrollList}>
+            <ScrollView 
+              contentContainerStyle={styles.scrollList}
+              refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[COLORS.orange]} />}
+            >
               {hackathons.length === 0 ? (
                 <Text style={styles.emptyTxt}>No hackathons created yet.</Text>
               ) : (

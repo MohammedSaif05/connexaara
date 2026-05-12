@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Alert, Modal, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Alert, Modal, Image, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import BackIcon from '../../assets/svg/back.svg';
 import { Hackathon, HackathonTeam, getHackathons, getHackathonTeams } from '../../services/api';
@@ -21,6 +21,7 @@ const TutorHackathonsScreen = ({ navigation }: any) => {
   
   const [hackathons, setHackathons] = useState<Hackathon[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     fetchHackathons();
@@ -35,6 +36,18 @@ const TutorHackathonsScreen = ({ navigation }: any) => {
       Alert.alert('Error', err.message || 'Failed to load hackathons');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try {
+      const data = await getHackathons();
+      setHackathons(data);
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Failed to refresh hackathons');
+    } finally {
+      setRefreshing(false);
     }
   };
 
@@ -64,7 +77,10 @@ const TutorHackathonsScreen = ({ navigation }: any) => {
         {loading ? (
           <ActivityIndicator size="large" color={COLORS.purple} style={{ marginTop: 40 }} />
         ) : (
-          <ScrollView contentContainerStyle={styles.scrollList}>
+          <ScrollView 
+            contentContainerStyle={styles.scrollList}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[COLORS.purple]} />}
+          >
             {hackathons.length === 0 ? (
               <Text style={styles.emptyTxt}>No hackathons available.</Text>
             ) : (

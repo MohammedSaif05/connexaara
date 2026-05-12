@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Alert, Modal, Image, TextInput } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Alert, Modal, Image, TextInput, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import BackIcon from '../../assets/svg/back.svg';
 import { Hackathon, getHackathons, getMyTeams } from '../../services/api';
@@ -22,6 +22,7 @@ const StudentHackathonsScreen = ({ navigation }: any) => {
   // Discover State
   const [hackathons, setHackathons] = useState<Hackathon[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   // My Teams State
   const [myTeams, setMyTeams] = useState<any[]>([]);
@@ -53,6 +54,23 @@ const StudentHackathonsScreen = ({ navigation }: any) => {
       Alert.alert('Error', err.message || 'Failed to load your teams');
     } finally {
       setLoadingMyTeams(false);
+    }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try {
+      if (activeTab === 'DISCOVER') {
+        const data = await getHackathons();
+        setHackathons(data);
+      } else {
+        const data = await getMyTeams();
+        setMyTeams(data);
+      }
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Failed to refresh');
+    } finally {
+      setRefreshing(false);
     }
   };
 
@@ -106,7 +124,10 @@ const StudentHackathonsScreen = ({ navigation }: any) => {
           loading ? (
             <ActivityIndicator size="large" color={COLORS.blue} style={{ marginTop: 40 }} />
           ) : (
-            <ScrollView contentContainerStyle={styles.scrollList}>
+            <ScrollView 
+              contentContainerStyle={styles.scrollList}
+              refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[COLORS.blue]} />}
+            >
               {hackathons.length === 0 ? (
                 <Text style={styles.emptyTxt}>No active hackathons found.</Text>
               ) : (
@@ -141,7 +162,10 @@ const StudentHackathonsScreen = ({ navigation }: any) => {
           loadingMyTeams ? (
             <ActivityIndicator size="large" color={COLORS.blue} style={{ marginTop: 40 }} />
           ) : (
-            <ScrollView contentContainerStyle={styles.scrollList}>
+            <ScrollView 
+              contentContainerStyle={styles.scrollList}
+              refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[COLORS.blue]} />}
+            >
               {myTeams.length === 0 ? (
                 <Text style={styles.emptyTxt}>You haven't registered for any hackathons yet.</Text>
               ) : (
