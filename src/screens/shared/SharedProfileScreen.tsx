@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Alert, TextInput, Modal, Image } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Alert, TextInput, Modal, Image, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { launchImageLibrary } from 'react-native-image-picker';
 import { getProfile, updateProfile, changePassword, UserProfile } from '../../services/api';
@@ -29,6 +29,7 @@ const SharedProfileScreen: React.FC<SharedProfileScreenProps> = ({ navigation, r
   
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   
   // Edit mode states
   const [isEditing, setIsEditing] = useState(false);
@@ -52,9 +53,9 @@ const SharedProfileScreen: React.FC<SharedProfileScreenProps> = ({ navigation, r
     fetchProfile();
   }, []);
 
-  const fetchProfile = async () => {
+  const fetchProfile = async (isRefreshing = false) => {
     try {
-      setLoading(true);
+      if (!isRefreshing) setLoading(true);
       const data = await getProfile();
       setProfile(data);
       setEditName(data.name);
@@ -64,8 +65,14 @@ const SharedProfileScreen: React.FC<SharedProfileScreenProps> = ({ navigation, r
       Alert.alert('Error', err.message || 'Failed to load profile');
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    fetchProfile(true);
+  }, []);
 
   const handlePickImage = async () => {
     if (!isEditing) return;
@@ -155,7 +162,17 @@ const SharedProfileScreen: React.FC<SharedProfileScreenProps> = ({ navigation, r
 
   return (
     <View style={styles.container}>
-      <ScrollView contentContainerStyle={{ paddingBottom: 60 }}>
+      <ScrollView 
+        contentContainerStyle={{ paddingBottom: 60 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[colorTheme.main]}
+            tintColor={colorTheme.main}
+          />
+        }
+      >
         {/* Header Background */}
         <View style={[styles.headerBg, { backgroundColor: colorTheme.main, paddingTop: insets.top + 20 }]} />
         
