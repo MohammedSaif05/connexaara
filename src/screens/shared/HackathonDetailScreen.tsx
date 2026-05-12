@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Alert, Image, TextInput, Modal } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import BackIcon from '../../assets/svg/back.svg';
-import { HackathonTeam, getHackathonTeams, registerHackathonTeam } from '../../services/api';
+import EditIcon from '../../assets/svg/edit.svg';
+import { HackathonTeam, getHackathonTeams, deleteHackathon } from '../../services/api';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
@@ -43,6 +44,29 @@ const HackathonDetailScreen = ({ route }: any) => {
     }
   };
 
+  const handleDelete = () => {
+    Alert.alert(
+      'Delete Hackathon',
+      `Are you sure you want to completely delete "${hackathon.name}"? This action cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Delete', 
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteHackathon(hackathon.id);
+              Alert.alert('Success', 'Hackathon deleted successfully');
+              navigation.navigate('HODDashboard');
+            } catch (err: any) {
+              Alert.alert('Error', err.message || 'Failed to delete hackathon');
+            }
+          }
+        }
+      ]
+    );
+  };
+
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -52,7 +76,19 @@ const HackathonDetailScreen = ({ route }: any) => {
             <BackIcon width={24} height={24} fill={COLORS.textPrimary} />
           </TouchableOpacity>
           <Text style={styles.headerTitle} numberOfLines={1}>{hackathon.name}</Text>
-          <View style={{ width: 40 }} />
+          
+          {role === 'HOD' ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <TouchableOpacity onPress={() => navigation.navigate('EditHackathon', { hackathon })} style={{ padding: 8 }}>
+                <EditIcon width={20} height={20} fill={COLORS.textPrimary} />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={handleDelete} style={{ padding: 8, marginLeft: 4 }}>
+                <Text style={{ fontSize: 18 }}>🗑️</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={{ width: 40 }} />
+          )}
         </View>
       </View>
 

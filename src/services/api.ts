@@ -797,6 +797,60 @@ export const getHackathonDetails = (id: string): Promise<Hackathon> =>
  * POST /hackathons/:id/register
  * Student registers for a hackathon.
  */
+/**
+ * PATCH /hackathons/:id
+ * HOD updates a hackathon (multipart/form-data for optional thumbnail).
+ */
+export const updateHackathon = async (id: string, payload: any): Promise<Hackathon> => {
+  const headers = await getAuthHeaders();
+  delete headers['Content-Type'];
+
+  const formData = new FormData();
+  if (payload.name) formData.append('name', payload.name);
+  if (payload.description) formData.append('description', payload.description);
+  if (payload.registrationDeadline) formData.append('registrationDeadline', payload.registrationDeadline);
+  if (payload.hackathonDate) formData.append('hackathonDate', payload.hackathonDate);
+  
+  if (payload.thumbnail) {
+    formData.append('thumbnail', {
+      uri: payload.thumbnail.uri,
+      type: payload.thumbnail.type || 'image/jpeg',
+      name: payload.thumbnail.fileName || 'thumbnail.jpg',
+    } as any);
+  }
+
+  const response = await fetchWithTimeout(`${BASE_URL}/hackathons/${id}`, {
+    method: 'PATCH',
+    headers,
+    body: formData,
+  });
+
+  const text = await response.text();
+  let json;
+  try {
+    json = JSON.parse(text);
+  } catch (err) {
+    throw new ApiError(response.status, 'Invalid JSON from server');
+  }
+
+  if (!response.ok) {
+    throw new ApiError(response.status, json.message || 'An error occurred');
+  }
+
+  return json;
+};
+
+/**
+ * DELETE /hackathons/:id
+ * HOD deletes a hackathon.
+ */
+export const deleteHackathon = (id: string): Promise<{ message: string }> =>
+  request('DELETE', `/hackathons/${id}`, undefined, true);
+
+/**
+ * POST /hackathons/:id/register
+ * Student registers a team for a hackathon.
+ */
 export const registerHackathonTeam = (
   id: string,
   payload: { teamName?: string; ideaTitle: string; ideaDescription: string; memberIds?: string[] },
