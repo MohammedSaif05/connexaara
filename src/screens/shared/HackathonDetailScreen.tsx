@@ -14,6 +14,8 @@ const COLORS = {
   textPrimary: '#1B2A4A',
   textSecondary: '#6B7280',
   white: '#FFFFFF',
+  danger: '#EF4444',
+  dangerLight: '#FEE2E2',
   border: '#E5E7EB',
 };
 
@@ -26,6 +28,8 @@ const HackathonDetailScreen = ({ route }: any) => {
   // HOD / TUTOR State
   const [teams, setTeams] = useState<HackathonTeam[]>([]);
   const [loadingTeams, setLoadingTeams] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     if (role === 'HOD' || role === 'TUTOR') {
@@ -46,26 +50,20 @@ const HackathonDetailScreen = ({ route }: any) => {
   };
 
   const handleDelete = () => {
-    Alert.alert(
-      'Delete Hackathon',
-      `Are you sure you want to completely delete "${hackathon.name}"? This action cannot be undone.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Delete', 
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteHackathon(hackathon.id);
-              Alert.alert('Success', 'Hackathon deleted successfully');
-              navigation.navigate('HODDashboard');
-            } catch (err: any) {
-              Alert.alert('Error', err.message || 'Failed to delete hackathon');
-            }
-          }
-        }
-      ]
-    );
+    setShowDeleteModal(true);
+  };
+
+  const confirmDelete = async () => {
+    try {
+      setIsDeleting(true);
+      await deleteHackathon(hackathon.id);
+      setShowDeleteModal(false);
+      navigation.navigate('HODDashboard');
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Failed to delete hackathon');
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   return (
@@ -81,10 +79,10 @@ const HackathonDetailScreen = ({ route }: any) => {
           {role === 'HOD' ? (
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <TouchableOpacity onPress={() => navigation.navigate('EditHackathon', { hackathon })} style={{ padding: 8 }}>
-                <EditIcon width={20} height={20} fill={COLORS.textPrimary} />
+                <EditIcon width={20} height={20} color={COLORS.textPrimary} />
               </TouchableOpacity>
               <TouchableOpacity onPress={handleDelete} style={{ padding: 8, marginLeft: 4 }}>
-                <DeleteIcon width={20} height={20} fill={COLORS.textPrimary} />
+                <DeleteIcon width={20} height={20} color={COLORS.textPrimary} />
               </TouchableOpacity>
             </View>
           ) : (
@@ -169,6 +167,30 @@ const HackathonDetailScreen = ({ route }: any) => {
 
       </ScrollView>
 
+      {/* Delete Confirmation Modal */}
+      <Modal visible={showDeleteModal} transparent animationType="fade" statusBarTranslucent>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.warningIconContainer}>
+              <DeleteIcon width={36} height={36} color={COLORS.danger} />
+            </View>
+            <Text style={styles.modalTitle}>Delete Hackathon?</Text>
+            <Text style={styles.modalDesc}>
+              Are you sure you want to completely delete <Text style={{fontWeight: '700'}}>{hackathon.name}</Text>? 
+              This action cannot be undone and will permanently remove all associated teams and progress.
+            </Text>
+            
+            <View style={styles.modalActions}>
+              <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowDeleteModal(false)} disabled={isDeleting}>
+                <Text style={styles.cancelBtnTxt}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.confirmDeleteBtn} onPress={confirmDelete} disabled={isDeleting}>
+                {isDeleting ? <ActivityIndicator color={COLORS.white} /> : <Text style={styles.confirmDeleteTxt}>Yes, Delete</Text>}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
     </View>
   );
@@ -208,6 +230,18 @@ const styles = StyleSheet.create({
   formSection: { padding: 20 },
   submitBtn: { height: 50, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginTop: 10 },
   submitBtnTxt: { color: COLORS.white, fontSize: 16, fontWeight: '700' },
+
+  // Modal Styles
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(27, 42, 74, 0.7)', justifyContent: 'center', alignItems: 'center', padding: 24 },
+  modalContent: { width: '100%', backgroundColor: COLORS.white, borderRadius: 28, padding: 24, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 20 }, shadowOpacity: 0.15, shadowRadius: 30, elevation: 10 },
+  warningIconContainer: { width: 80, height: 80, borderRadius: 40, backgroundColor: COLORS.dangerLight, justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
+  modalTitle: { fontSize: 24, fontWeight: '800', color: COLORS.textPrimary, marginBottom: 12, textAlign: 'center' },
+  modalDesc: { fontSize: 15, color: COLORS.textSecondary, textAlign: 'center', lineHeight: 22, marginBottom: 32, paddingHorizontal: 10 },
+  modalActions: { flexDirection: 'row', gap: 12, width: '100%' },
+  cancelBtn: { flex: 1, height: 52, borderRadius: 16, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.background },
+  cancelBtnTxt: { fontSize: 16, fontWeight: '700', color: COLORS.textSecondary },
+  confirmDeleteBtn: { flex: 1, height: 52, borderRadius: 16, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.danger, shadowColor: COLORS.danger, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4 },
+  confirmDeleteTxt: { fontSize: 16, fontWeight: '700', color: COLORS.white },
 });
 
 export default HackathonDetailScreen;
