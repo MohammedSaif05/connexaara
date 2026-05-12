@@ -12,6 +12,7 @@ import HODHackathonsScreen from '../screens/hod/HODHackathonsScreen';
 import TutorHackathonsScreen from '../screens/tutor/TutorHackathonsScreen';
 import HackathonDetailScreen from '../screens/shared/HackathonDetailScreen';
 import TeamDetailScreen from '../screens/shared/TeamDetailScreen';
+import StudentHackathonRegistrationScreen from '../screens/student/StudentHackathonRegistrationScreen';
 import { Hackathon } from '../services/api';
 
 export type RootStackParamList = {
@@ -26,6 +27,7 @@ export type RootStackParamList = {
   HODHackathons: undefined;
   HackathonDetail: { hackathon: Hackathon; role: 'HOD' | 'TUTOR' | 'STUDENT'; colorTheme: { main: string; light: string } };
   TeamDetail: { teamId: string; role: 'HOD' | 'TUTOR' | 'STUDENT'; colorTheme: { main: string; light: string } };
+  StudentHackathonRegistration: { hackathon: Hackathon; colorTheme: { main: string; light: string } };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -50,6 +52,7 @@ export const AppNavigator = () => {
         <Stack.Screen name="HODHackathons" component={HODHackathonsScreen} />
         <Stack.Screen name="HackathonDetail" component={HackathonDetailScreen} />
         <Stack.Screen name="TeamDetail" component={TeamDetailScreen} />
+        <Stack.Screen name="StudentHackathonRegistration" component={StudentHackathonRegistrationScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

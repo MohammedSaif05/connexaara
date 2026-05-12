@@ -818,6 +818,13 @@ export const getMyTeams = (): Promise<any[]> =>
   request('GET', `/hackathons/student/my-teams`, undefined, true);
 
 /**
+ * GET /hackathons/department-students
+ * Fetch batches and active students of the department for hackathon team selection.
+ */
+export const getDepartmentStudents = (): Promise<any[]> =>
+  request('GET', `/hackathons/department-students`, undefined, true);
+
+/**
  * GET /hackathons/teams/:teamId
  * Retrieve detailed progress and members of a team.
  */

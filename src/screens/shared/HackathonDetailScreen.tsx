@@ -25,14 +25,6 @@ const HackathonDetailScreen = ({ route }: any) => {
   const [teams, setTeams] = useState<HackathonTeam[]>([]);
   const [loadingTeams, setLoadingTeams] = useState(false);
 
-  // STUDENT Registration State
-  const [teamName, setTeamName] = useState('');
-  const [ideaTitle, setIdeaTitle] = useState('');
-  const [ideaDesc, setIdeaDesc] = useState('');
-  const [memberIdsInput, setMemberIdsInput] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
-
   useEffect(() => {
     if (role === 'HOD' || role === 'TUTOR') {
       fetchTeams();
@@ -48,31 +40,6 @@ const HackathonDetailScreen = ({ route }: any) => {
       Alert.alert('Error', err.message || 'Failed to load teams');
     } finally {
       setLoadingTeams(false);
-    }
-  };
-
-  const handleRegister = async () => {
-    if (!ideaTitle || !ideaDesc) return Alert.alert('Error', 'Idea title and description are required');
-    if (hackathon.isGroup && !teamName) return Alert.alert('Error', 'Team name is required');
-
-    let memberIds: string[] = [];
-    if (hackathon.isGroup && memberIdsInput.trim()) {
-      memberIds = memberIdsInput.split(',').map(s => s.trim()).filter(s => s.length > 0);
-    }
-
-    setIsSubmitting(true);
-    try {
-      await registerHackathonTeam(hackathon.id, {
-        teamName: hackathon.isGroup ? teamName : undefined,
-        ideaTitle,
-        ideaDescription: ideaDesc,
-        memberIds: hackathon.isGroup ? memberIds : undefined,
-      });
-      setShowSuccessModal(true);
-    } catch (err: any) {
-      Alert.alert('Registration Failed', err.message || 'Something went wrong');
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
@@ -151,63 +118,21 @@ const HackathonDetailScreen = ({ route }: any) => {
           </View>
         )}
 
-        {/* STUDENT Registration Form */}
+        {/* STUDENT Registration Button */}
         {role === 'STUDENT' && (
           <View style={styles.formSection}>
-            <Text style={styles.sectionTitle}>Register Your Idea</Text>
-            
-            {hackathon.isGroup && (
-              <>
-                <Text style={styles.inputLabel}>Team Name</Text>
-                <TextInput style={styles.input} placeholder="e.g. Byte Benders" value={teamName} onChangeText={setTeamName} />
-              </>
-            )}
-            
-            <Text style={styles.inputLabel}>Idea Title</Text>
-            <TextInput style={styles.input} placeholder="e.g. AI Attendance Tracker" value={ideaTitle} onChangeText={setIdeaTitle} />
-
-            <Text style={styles.inputLabel}>Idea Description</Text>
-            <TextInput style={[styles.input, { height: 80 }]} placeholder="Describe your solution..." value={ideaDesc} onChangeText={setIdeaDesc} multiline textAlignVertical="top" />
-
-            {hackathon.isGroup && (
-              <>
-                <Text style={styles.inputLabel}>Member UUIDs (comma separated)</Text>
-                <TextInput style={styles.input} placeholder="e.g. 1234-abcd, 5678-efgh" value={memberIdsInput} onChangeText={setMemberIdsInput} />
-                <Text style={styles.helpText}>Team must have {hackathon.minSize} to {hackathon.maxSize} members total.</Text>
-              </>
-            )}
-
-            <TouchableOpacity style={[styles.submitBtn, { backgroundColor: colorTheme.main }]} onPress={handleRegister} disabled={isSubmitting}>
-              {isSubmitting ? <ActivityIndicator color={COLORS.white} /> : <Text style={styles.submitBtnTxt}>Submit Registration</Text>}
+            <TouchableOpacity 
+              style={[styles.submitBtn, { backgroundColor: colorTheme.main }]} 
+              onPress={() => navigation.navigate('StudentHackathonRegistration', { hackathon, colorTheme })}
+            >
+              <Text style={styles.submitBtnTxt}>Register Now</Text>
             </TouchableOpacity>
           </View>
         )}
 
       </ScrollView>
 
-      {/* Custom Success Modal */}
-      <Modal visible={showSuccessModal} transparent animationType="fade" statusBarTranslucent>
-        <View style={styles.successModalOverlay}>
-          <View style={styles.successModalContent}>
-            <View style={[styles.successIconContainer, { backgroundColor: colorTheme.light }]}>
-              <Text style={styles.successIconTxt}>🎉</Text>
-            </View>
-            <Text style={styles.successTitle}>Awesome!</Text>
-            <Text style={styles.successDesc}>You have successfully registered for {hackathon.name}. Good luck!</Text>
-            
-            <TouchableOpacity 
-              style={[styles.successBtn, { backgroundColor: colorTheme.main }]} 
-              activeOpacity={0.8}
-              onPress={() => {
-                setShowSuccessModal(false);
-                navigation.goBack();
-              }}
-            >
-              <Text style={styles.successBtnTxt}>Back to Hackathons</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+
     </View>
   );
 };
@@ -244,20 +169,8 @@ const styles = StyleSheet.create({
   teamStatTxt: { fontSize: 13, fontWeight: '600', color: COLORS.textPrimary },
 
   formSection: { padding: 20 },
-  inputLabel: { fontSize: 13, fontWeight: '600', color: COLORS.textSecondary, marginBottom: 6 },
-  input: { backgroundColor: COLORS.white, borderWidth: 1, borderColor: COLORS.border, borderRadius: 12, paddingHorizontal: 16, height: 48, marginBottom: 16, justifyContent: 'center' },
-  helpText: { fontSize: 12, color: COLORS.textSecondary, marginTop: -10, marginBottom: 16 },
   submitBtn: { height: 50, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginTop: 10 },
   submitBtnTxt: { color: COLORS.white, fontSize: 16, fontWeight: '700' },
-
-  successModalOverlay: { flex: 1, backgroundColor: 'rgba(27, 42, 74, 0.8)', justifyContent: 'center', alignItems: 'center', padding: 24 },
-  successModalContent: { width: '100%', backgroundColor: COLORS.white, borderRadius: 28, padding: 32, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 20 }, shadowOpacity: 0.15, shadowRadius: 30, elevation: 10 },
-  successIconContainer: { width: 80, height: 80, borderRadius: 40, justifyContent: 'center', alignItems: 'center', marginBottom: 24, borderWidth: 4, borderColor: COLORS.white, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 10 },
-  successIconTxt: { fontSize: 40 },
-  successTitle: { fontSize: 28, fontWeight: '800', color: COLORS.textPrimary, marginBottom: 12, textAlign: 'center', letterSpacing: -0.5 },
-  successDesc: { fontSize: 15, color: COLORS.textSecondary, textAlign: 'center', lineHeight: 22, marginBottom: 32, paddingHorizontal: 10 },
-  successBtn: { width: '100%', height: 56, borderRadius: 16, justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 6 },
-  successBtnTxt: { fontSize: 18, fontWeight: '700', color: COLORS.white },
 });
 
 export default HackathonDetailScreen;
