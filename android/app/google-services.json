@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "834496759763",
+    "project_id": "connexaara",
+    "storage_bucket": "connexaara.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:834496759763:android:13eb8d6e57a89488e8d126",
+        "android_client_info": {
+          "package_name": "com.connexaara"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyASpfyC8vEuIxXmbLOD65muw8CmgFwy9iM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
