@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { launchImageLibrary } from 'react-native-image-picker';
 import { getProfile, updateProfile, changePassword, UserProfile } from '../../services/api';
 import { clearAuthData } from '../../services/storage';
+import EditIcon from '../../assets/svg/edit.svg';
 
 const COLORS = {
   background: '#F5F7FA',
@@ -36,9 +37,19 @@ const SharedProfileScreen: React.FC<SharedProfileScreenProps> = ({ navigation, r
   const [editName, setEditName] = useState('');
   const [editPhone, setEditPhone] = useState('');
   const [editBio, setEditBio] = useState('');
-  const [newImageUri, setNewImageUri] = useState<string | null>(null);
-  const [newImageFile, setNewImageFile] = useState<any>(null);
   const [saving, setSaving] = useState(false);
+  
+  // Image Uploading state
+  const [uploadingImage, setUploadingImage] = useState(false);
+  
+  // Image Viewer state
+  const [showImageViewer, setShowImageViewer] = useState(false);
+  
+  // Feedback Modal
+  const [feedbackVisible, setFeedbackVisible] = useState(false);
+  const [feedbackType, setFeedbackType] = useState<'success' | 'error'>('success');
+  const [feedbackTitle, setFeedbackTitle] = useState('');
+  const [feedbackMessage, setFeedbackMessage] = useState('');
 
   // Password Modal
   const [showPasswordModal, setShowPasswordModal] = useState(false);
@@ -62,7 +73,7 @@ const SharedProfileScreen: React.FC<SharedProfileScreenProps> = ({ navigation, r
       setEditPhone(data.phoneNumber || '');
       setEditBio(data.bio || '');
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to load profile');
+      showFeedback('error', 'Error', err.message || 'Failed to load profile');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -74,14 +85,29 @@ const SharedProfileScreen: React.FC<SharedProfileScreenProps> = ({ navigation, r
     fetchProfile(true);
   }, []);
 
+  const showFeedback = (type: 'success' | 'error', title: string, message: string) => {
+    setFeedbackType(type);
+    setFeedbackTitle(title);
+    setFeedbackMessage(message);
+    setFeedbackVisible(true);
+  };
+
   const handlePickImage = async () => {
-    if (!isEditing) return;
     const result = await launchImageLibrary({ mediaType: 'photo', quality: 0.8 });
     if (result.didCancel || !result.assets?.length) return;
     
     const asset = result.assets[0];
-    setNewImageUri(asset.uri || null);
-    setNewImageFile(asset);
+    
+    try {
+      setUploadingImage(true);
+      const updated = await updateProfile({ file: asset });
+      setProfile(updated);
+      showFeedback('success', 'Profile Photo Updated', 'Your profile photo has been successfully updated.');
+    } catch (err: any) {
+      showFeedback('error', 'Upload Failed', err.message || 'Failed to update profile photo.');
+    } finally {
+      setUploadingImage(false);
+    }
   };
 
   const handleSaveProfile = async () => {
@@ -91,14 +117,12 @@ const SharedProfileScreen: React.FC<SharedProfileScreenProps> = ({ navigation, r
         name: editName,
         phoneNumber: editPhone,
         bio: editBio,
-        file: newImageFile,
       });
       setProfile(updated);
       setIsEditing(false);
-      setNewImageFile(null);
-      Alert.alert('Success', 'Profile updated successfully');
+      showFeedback('success', 'Profile Updated', 'Your personal details have been updated.');
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to update profile');
+      showFeedback('error', 'Update Failed', err.message || 'Failed to update personal details.');
     } finally {
       setSaving(false);
     }
@@ -109,26 +133,24 @@ const SharedProfileScreen: React.FC<SharedProfileScreenProps> = ({ navigation, r
       setEditName(profile.name);
       setEditPhone(profile.phoneNumber || '');
       setEditBio(profile.bio || '');
-      setNewImageUri(null);
-      setNewImageFile(null);
     }
     setIsEditing(false);
   };
 
   const handleChangePassword = async () => {
     if (!currentPassword || !newPassword) {
-      Alert.alert('Error', 'Please fill all fields');
+      showFeedback('error', 'Validation Error', 'Please fill all password fields.');
       return;
     }
     try {
       setPasswordSaving(true);
       await changePassword(currentPassword, newPassword);
-      Alert.alert('Success', 'Password changed successfully');
+      showFeedback('success', 'Password Changed', 'Your password has been changed successfully.');
       setShowPasswordModal(false);
       setCurrentPassword('');
       setNewPassword('');
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to change password');
+      showFeedback('error', 'Change Failed', err.message || 'Failed to change password.');
     } finally {
       setPasswordSaving(false);
     }
@@ -144,7 +166,7 @@ const SharedProfileScreen: React.FC<SharedProfileScreenProps> = ({ navigation, r
         routes: [{ name: 'Login' }],
       });
     } catch (err) {
-      Alert.alert('Error', 'Failed to log out');
+      showFeedback('error', 'Error', 'Failed to log out');
     }
   };
 
@@ -157,8 +179,6 @@ const SharedProfileScreen: React.FC<SharedProfileScreenProps> = ({ navigation, r
   }
 
   if (!profile) return null;
-
-  const displayImageUri = newImageUri || profile.profileImageUrl;
 
   return (
     <View style={styles.container}>
@@ -178,22 +198,28 @@ const SharedProfileScreen: React.FC<SharedProfileScreenProps> = ({ navigation, r
         
         {/* Profile Card */}
         <View style={styles.profileCard}>
-          <TouchableOpacity onPress={handlePickImage} activeOpacity={isEditing ? 0.7 : 1} style={styles.avatarContainer}>
-            {displayImageUri ? (
-              <Image source={{ uri: displayImageUri }} style={styles.avatar} />
-            ) : (
-              <View style={[styles.avatarPlaceholder, { backgroundColor: colorTheme.light }]}>
-                <Text style={[styles.avatarInitial, { color: colorTheme.main }]}>
-                  {profile.name.charAt(0).toUpperCase()}
-                </Text>
-              </View>
-            )}
-            {isEditing && (
-              <View style={[styles.editBadge, { backgroundColor: colorTheme.main }]}>
-                <Text style={styles.editBadgeText}>📷</Text>
-              </View>
-            )}
-          </TouchableOpacity>
+          <View style={styles.avatarWrapper}>
+            <TouchableOpacity onPress={() => setShowImageViewer(true)} activeOpacity={0.8} style={styles.avatarContainer}>
+              {profile.profileImageUrl ? (
+                <Image source={{ uri: profile.profileImageUrl }} style={styles.avatar} />
+              ) : (
+                <View style={[styles.avatarPlaceholder, { backgroundColor: colorTheme.light }]}>
+                  <Text style={[styles.avatarInitial, { color: colorTheme.main }]}>
+                    {profile.name.charAt(0).toUpperCase()}
+                  </Text>
+                </View>
+              )}
+              {uploadingImage && (
+                <View style={styles.avatarLoadingOverlay}>
+                  <ActivityIndicator color={COLORS.white} />
+                </View>
+              )}
+            </TouchableOpacity>
+            
+            <TouchableOpacity onPress={handlePickImage} activeOpacity={0.8} style={[styles.editBadge, { backgroundColor: colorTheme.main }]}>
+              <EditIcon width={16} height={16} color={COLORS.white} stroke={COLORS.white} />
+            </TouchableOpacity>
+          </View>
 
           <View style={styles.roleBadge}>
             <Text style={[styles.roleBadgeText, { color: colorTheme.main }]}>{role}</Text>
@@ -307,6 +333,43 @@ const SharedProfileScreen: React.FC<SharedProfileScreenProps> = ({ navigation, r
           </View>
         </View>
       </Modal>
+      {/* Feedback Modal */}
+      <Modal visible={feedbackVisible} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <TouchableOpacity style={styles.modalCloseBtn} onPress={() => setFeedbackVisible(false)}>
+              <Text style={styles.modalCloseBtnText}>✕</Text>
+            </TouchableOpacity>
+            <View style={[styles.feedbackIconContainer, { backgroundColor: feedbackType === 'success' ? '#D1FAE5' : COLORS.dangerLight }]}>
+              <Text style={{ fontSize: 32 }}>{feedbackType === 'success' ? '✅' : '❌'}</Text>
+            </View>
+            <Text style={styles.modalTitle}>{feedbackTitle}</Text>
+            <Text style={styles.modalDesc}>{feedbackMessage}</Text>
+            
+            <TouchableOpacity style={[styles.modalSaveBtn, { width: '100%', backgroundColor: feedbackType === 'success' ? colorTheme.main : COLORS.danger }]} onPress={() => setFeedbackVisible(false)}>
+              <Text style={styles.modalSaveText}>Okay</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Image Viewer Modal */}
+      <Modal visible={showImageViewer} transparent animationType="fade">
+        <View style={styles.viewerOverlay}>
+          <TouchableOpacity style={styles.viewerCloseBtn} onPress={() => setShowImageViewer(false)}>
+            <Text style={styles.viewerCloseText}>✕</Text>
+          </TouchableOpacity>
+          {profile.profileImageUrl ? (
+            <Image source={{ uri: profile.profileImageUrl }} style={styles.viewerImage} resizeMode="contain" />
+          ) : (
+            <View style={[styles.viewerPlaceholder, { backgroundColor: colorTheme.light }]}>
+              <Text style={[styles.viewerInitial, { color: colorTheme.main }]}>
+                {profile.name.charAt(0).toUpperCase()}
+              </Text>
+            </View>
+          )}
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -315,12 +378,16 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
   headerBg: { height: 180, width: '100%', position: 'absolute', top: 0 },
   profileCard: { backgroundColor: COLORS.white, margin: 20, marginTop: 100, borderRadius: 24, padding: 24, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.1, shadowRadius: 20, elevation: 5 },
-  avatarContainer: { width: 100, height: 100, borderRadius: 50, marginTop: -50, marginBottom: 16, backgroundColor: COLORS.white, padding: 4 },
+  
+  avatarWrapper: { position: 'relative', marginTop: -50, marginBottom: 16 },
+  avatarContainer: { width: 100, height: 100, borderRadius: 50, backgroundColor: COLORS.white, padding: 4 },
   avatar: { width: '100%', height: '100%', borderRadius: 50 },
   avatarPlaceholder: { width: '100%', height: '100%', borderRadius: 50, justifyContent: 'center', alignItems: 'center' },
   avatarInitial: { fontSize: 36, fontWeight: '800' },
-  editBadge: { position: 'absolute', bottom: 0, right: 0, width: 32, height: 32, borderRadius: 16, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: COLORS.white },
+  avatarLoadingOverlay: { position: 'absolute', top: 4, left: 4, right: 4, bottom: 4, borderRadius: 46, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center' },
+  editBadge: { position: 'absolute', bottom: 0, right: 0, width: 34, height: 34, borderRadius: 17, justifyContent: 'center', alignItems: 'center', borderWidth: 3, borderColor: COLORS.white },
   editBadgeText: { fontSize: 14 },
+  
   roleBadge: { paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12, backgroundColor: '#F3F4F6', marginBottom: 8 },
   roleBadgeText: { fontSize: 12, fontWeight: '700' },
   userName: { fontSize: 24, fontWeight: '800', color: COLORS.textPrimary, marginBottom: 4 },
@@ -356,8 +423,18 @@ const styles = StyleSheet.create({
   modalCancelText: { fontSize: 16, fontWeight: '600', color: COLORS.textSecondary },
   modalSaveBtn: { flex: 1, height: 50, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
   modalSaveText: { fontSize: 16, fontWeight: '700', color: COLORS.white },
+  modalCloseBtn: { position: 'absolute', top: 16, right: 16, padding: 5, zIndex: 10 },
+  modalCloseBtnText: { fontSize: 20, color: COLORS.textSecondary, fontWeight: 'bold' },
   warningIconContainer: { width: 80, height: 80, borderRadius: 40, backgroundColor: COLORS.dangerLight, justifyContent: 'center', alignItems: 'center', marginBottom: 16 },
+  feedbackIconContainer: { width: 80, height: 80, borderRadius: 40, justifyContent: 'center', alignItems: 'center', marginBottom: 16 },
   modalDesc: { fontSize: 15, color: COLORS.textSecondary, textAlign: 'center', marginBottom: 24, lineHeight: 22 },
+  
+  viewerOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center' },
+  viewerCloseBtn: { position: 'absolute', top: 50, right: 20, zIndex: 10, padding: 10 },
+  viewerCloseText: { color: COLORS.white, fontSize: 30, fontWeight: 'bold' },
+  viewerImage: { width: '100%', height: '80%' },
+  viewerPlaceholder: { width: 200, height: 200, borderRadius: 100, justifyContent: 'center', alignItems: 'center' },
+  viewerInitial: { fontSize: 80, fontWeight: '800' },
 });
 
 export default SharedProfileScreen;

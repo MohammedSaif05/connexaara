@@ -161,9 +161,9 @@ export const updateProfile = async (data: { name?: string; phoneNumber?: string;
   if (authData?.token) headers.Authorization = `Bearer ${authData.token}`;
 
   const formData = new FormData();
-  if (data.name) formData.append('name', data.name);
-  if (data.phoneNumber) formData.append('phoneNumber', data.phoneNumber);
-  if (data.bio) formData.append('bio', data.bio);
+  if (data.name !== undefined) formData.append('name', data.name);
+  if (data.phoneNumber !== undefined) formData.append('phoneNumber', data.phoneNumber);
+  if (data.bio !== undefined) formData.append('bio', data.bio);
   if (data.file) {
     formData.append('file', {
       uri: data.file.uri,
