@@ -74,7 +74,7 @@ const fetchWithTimeout = (
         clearTimeout(timer);
         resolve(res);
       })
-      .catch(err => {
+      .catch(_err => {
         clearTimeout(timer);
         reject(new ApiError(0, 'Network error. Please check your connection.'));
       });
@@ -189,6 +189,9 @@ export const updateProfile = async (data: { name?: string; phoneNumber?: string;
 
 export const changePassword = (currentPassword: string, newPassword: string): Promise<{ message: string }> =>
   request<{ message: string }>('PATCH', '/users/me/password', { currentPassword, newPassword }, true);
+
+export const addFcmToken = (token: string): Promise<{ message: string }> =>
+  request<{ message: string }>('POST', '/users/me/fcm-token', { token }, true);
 
 // --- Staff Endpoints ---
 
