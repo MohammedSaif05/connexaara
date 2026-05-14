@@ -21,6 +21,7 @@ import { saveAuthData } from '../services/storage';
 import type { UserRole } from '../services/storage';
 import Loader from '../components/Loader';
 import { useToast } from '../components/ToastContext';
+import NotificationService from '../services/notificationService';
 
 const COLORS = {
   background: '#FFFFFF',
@@ -118,6 +119,9 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
         batchName: response.user.batch?.name ?? null,
         currentSemester: response.user.batch?.currentSemester ?? null,
       });
+
+      // Register FCM token with the backend now that user is authenticated
+      NotificationService.registerTokenAfterLogin();
 
       // Clear loading state first so the BlurView is unmounted natively
       setIsLoading(false);
