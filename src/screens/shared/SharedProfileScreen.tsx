@@ -83,7 +83,7 @@ const SharedProfileScreen: React.FC<SharedProfileScreenProps> = ({ navigation, r
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    fetchProfile(true);
+    fetchProfile();
   }, []);
 
   const showFeedback = (type: 'success' | 'error', title: string, message: string) => {

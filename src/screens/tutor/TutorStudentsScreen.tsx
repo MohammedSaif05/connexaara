@@ -171,7 +171,8 @@ const TutorStudentsScreen = () => {
     setIsRefreshing(true);
     setSearchQuery('');
     searchInputRef.current?.blur();
-    fetchStudents(batchId, 1, '', activeTab, true, true);
+    setStudentList([]);
+    fetchStudents(batchId, 1, '', activeTab, true, false);
   };
 
   const handleSearchChange = (text: string) => {

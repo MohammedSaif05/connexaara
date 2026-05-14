@@ -139,7 +139,7 @@ const TutorTimetableScreen = () => {
   const handleRefresh = () => {
     if (!batchId || !selectedSemester || isEditing) return;
     setIsRefreshing(true);
-    fetchTimetable(selectedSemester, batchId, true);
+    fetchTimetable(selectedSemester, batchId);
   };
 
   const handleStartEdit = () => {

@@ -80,7 +80,7 @@ const StudentHomeScreen = () => {
 
   const handleRefresh = () => {
     setIsRefreshing(true);
-    fetchDashboardData(true);
+    fetchDashboardData();
   };
 
   const handleViewSubject = async (id: string) => {

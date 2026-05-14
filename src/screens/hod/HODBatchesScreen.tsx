@@ -154,7 +154,8 @@ const HODBatchesScreen = () => {
     setIsRefreshing(true);
     setSearchQuery('');
     setIsTyping(false);
-    fetchBatches(1, '', activeTab, true, true);
+    setBatchList([]);
+    fetchBatches(1, '', activeTab, true, false);
   };
 
   // Search with 500ms debounce

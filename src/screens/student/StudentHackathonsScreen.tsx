@@ -60,6 +60,7 @@ const StudentHackathonsScreen = ({ navigation }: any) => {
 
   const onRefresh = async () => {
     setRefreshing(true);
+    if (activeTab === 'DISCOVER') setLoading(true); else setLoadingMyTeams(true);
     try {
       if (activeTab === 'DISCOVER') {
         const data = await getHackathons();

@@ -126,7 +126,7 @@ const StudentOdsScreen = () => {
   }, [showToast]);
 
   useEffect(() => { fetchOds(); }, [fetchOds]);
-  const handleRefresh = () => { setIsRefreshing(true); fetchOds(true); };
+  const handleRefresh = () => { setIsRefreshing(true); fetchOds(); };
 
   const fetchBatchStudents = async () => {
     setLoadingStudents(true);

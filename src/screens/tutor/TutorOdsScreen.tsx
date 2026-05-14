@@ -108,7 +108,7 @@ const TutorOdsScreen = () => {
   }, [showToast]);
 
   useEffect(() => { fetchOds(); }, [fetchOds]);
-  const handleRefresh = () => { setIsRefreshing(true); fetchOds(true); };
+  const handleRefresh = () => { setIsRefreshing(true); fetchOds(); };
 
   const openActionModal = (od: OdRequest) => { setSelectedOd(od); setRemark(''); setActionVisible(true); };
 

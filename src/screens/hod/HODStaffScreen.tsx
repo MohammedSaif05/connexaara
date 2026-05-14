@@ -138,7 +138,8 @@ const HODStaffScreen = () => {
   const handleRefresh = () => {
     setIsRefreshing(true);
     setSearchQuery('');
-    fetchStaff(1, '', activeTab, true, true);
+    setStaffList([]);
+    fetchStaff(1, '', activeTab, true, false);
   };
 
   // Search with 500ms debounce

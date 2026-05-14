@@ -185,8 +185,9 @@ const TutorSubjectsScreen = () => {
     setIsRefreshing(true);
     setSearchQuery('');
     searchInputRef.current?.blur();
+    setSubjectList([]);
     const sem = getSemesterFilter(activeTab);
-    fetchSubjects(sem, 1, '', true, true);
+    fetchSubjects(sem, 1, '', true, false);
   };
 
   const handleSearchChange = (text: string) => {

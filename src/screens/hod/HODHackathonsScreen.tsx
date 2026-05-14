@@ -62,6 +62,7 @@ const HODHackathonsScreen = ({ navigation }: any) => {
 
   const onRefresh = async () => {
     setRefreshing(true);
+    setLoading(true);
     try {
       const data = await getHackathons();
       setHackathons(data);

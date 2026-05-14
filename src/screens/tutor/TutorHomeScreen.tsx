@@ -132,7 +132,7 @@ const TutorHomeScreen = () => {
 
   const handleRefresh = () => {
     setIsRefreshing(true);
-    fetchDashboardStats(true);
+    fetchDashboardStats();
   };
 
   const renderCurrentSlotCard = () => {

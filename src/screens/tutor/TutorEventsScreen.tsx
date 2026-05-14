@@ -40,6 +40,7 @@ const TutorEventsScreen = ({ navigation }: any) => {
 
   const onRefresh = async () => {
     setRefreshing(true);
+    setLoading(true);
     try {
       const data = await getEvents();
       setEvents(data);
