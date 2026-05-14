@@ -139,7 +139,7 @@ class NotificationService {
         importance: AndroidImportance.HIGH,
         sound: 'default',
         vibration: true,
-        vibrationPattern: [300, 200, 300],
+        vibrationPattern: [300, 200, 300, 200],
       });
 
       // General / new request channel
