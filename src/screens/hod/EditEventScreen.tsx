@@ -5,6 +5,7 @@ import { launchImageLibrary } from 'react-native-image-picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import BackIcon from '../../assets/svg/back.svg';
 import { updateEvent, Event } from '../../services/api';
+import Skeleton from '../../components/Skeleton';
 
 const COLORS = {
   background: '#F5F7FA',
@@ -34,6 +35,13 @@ const EditEventScreen = ({ route, navigation }: any) => {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(true);
+
+  React.useEffect(() => {
+    // Artificial delay to show skeleton transition and match app feel
+    const timer = setTimeout(() => setIsInitializing(false), 300);
+    return () => clearTimeout(timer);
+  }, []);
 
   const handlePickImage = async () => {
     try {
@@ -78,49 +86,75 @@ const EditEventScreen = ({ route, navigation }: any) => {
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={styles.formScroll}>
-        <Text style={styles.inputLabel}>Event Name</Text>
-        <TextInput style={styles.input} value={name} onChangeText={setName} />
-
-        <Text style={styles.inputLabel}>Description</Text>
-        <TextInput style={[styles.input, { height: 80 }]} value={description} onChangeText={setDescription} multiline textAlignVertical="top" />
-
-        <View style={styles.row}>
-          <View style={{ flex: 1, marginRight: 10 }}>
-            <Text style={styles.inputLabel}>Start Date</Text>
-            <TouchableOpacity style={styles.input} onPress={() => setShowStartPicker(true)}>
-              <Text>{startDate.toLocaleDateString()}</Text>
-            </TouchableOpacity>
-            {showStartPicker && (
-              <DateTimePicker value={startDate} mode="date" display="default" onChange={(e, d) => { setShowStartPicker(false); if (d) setStartDate(d); }} />
-            )}
+      {isInitializing ? (
+        <ScrollView contentContainerStyle={styles.formScroll}>
+          <Skeleton width={80} height={16} style={{ marginTop: 16, marginBottom: 8 }} />
+          <Skeleton width="100%" height={50} borderRadius={12} />
+          
+          <Skeleton width={80} height={16} style={{ marginTop: 16, marginBottom: 8 }} />
+          <Skeleton width="100%" height={80} borderRadius={12} />
+          
+          <View style={styles.row}>
+            <View style={{ flex: 1, marginRight: 10 }}>
+              <Skeleton width={80} height={16} style={{ marginTop: 16, marginBottom: 8 }} />
+              <Skeleton width="100%" height={50} borderRadius={12} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Skeleton width={80} height={16} style={{ marginTop: 16, marginBottom: 8 }} />
+              <Skeleton width="100%" height={50} borderRadius={12} />
+            </View>
           </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.inputLabel}>End Date</Text>
-            <TouchableOpacity style={styles.input} onPress={() => setShowEndPicker(true)}>
-              <Text>{endDate.toLocaleDateString()}</Text>
-            </TouchableOpacity>
-            {showEndPicker && (
-              <DateTimePicker value={endDate} mode="date" display="default" onChange={(e, d) => { setShowEndPicker(false); if (d) setEndDate(d); }} />
-            )}
+          
+          <Skeleton width={180} height={16} style={{ marginTop: 16, marginBottom: 8 }} />
+          <Skeleton width="100%" height={160} borderRadius={12} />
+          
+          <Skeleton width="100%" height={56} borderRadius={16} style={{ marginTop: 32 }} />
+        </ScrollView>
+      ) : (
+        <ScrollView contentContainerStyle={styles.formScroll}>
+          <Text style={styles.inputLabel}>Event Name</Text>
+          <TextInput style={styles.input} value={name} onChangeText={setName} />
+
+          <Text style={styles.inputLabel}>Description</Text>
+          <TextInput style={[styles.input, { height: 80 }]} value={description} onChangeText={setDescription} multiline textAlignVertical="top" />
+
+          <View style={styles.row}>
+            <View style={{ flex: 1, marginRight: 10 }}>
+              <Text style={styles.inputLabel}>Start Date</Text>
+              <TouchableOpacity style={styles.input} onPress={() => setShowStartPicker(true)}>
+                <Text>{startDate.toLocaleDateString()}</Text>
+              </TouchableOpacity>
+              {showStartPicker && (
+                <DateTimePicker value={startDate} mode="date" display="default" onChange={(e, d) => { setShowStartPicker(false); if (d) setStartDate(d); }} />
+              )}
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.inputLabel}>End Date</Text>
+              <TouchableOpacity style={styles.input} onPress={() => setShowEndPicker(true)}>
+                <Text>{endDate.toLocaleDateString()}</Text>
+              </TouchableOpacity>
+              {showEndPicker && (
+                <DateTimePicker value={endDate} mode="date" display="default" onChange={(e, d) => { setShowEndPicker(false); if (d) setEndDate(d); }} />
+              )}
+            </View>
           </View>
-        </View>
 
-        <Text style={styles.inputLabel}>Thumbnail Image (Optional)</Text>
-        <TouchableOpacity style={styles.imgPickerBtn} onPress={handlePickImage} activeOpacity={0.8}>
-          {thumbnail ? (
-            <Image source={{ uri: thumbnail.uri }} style={styles.previewImg} />
-          ) : existingThumbnailUrl ? (
-            <Image source={{ uri: existingThumbnailUrl }} style={styles.previewImg} />
-          ) : (
-            <Text style={styles.imgPickerTxt}>Tap to upload a new image</Text>
-          )}
-        </TouchableOpacity>
+          <Text style={styles.inputLabel}>Thumbnail Image (Optional)</Text>
+          <TouchableOpacity style={styles.imgPickerBtn} onPress={handlePickImage} activeOpacity={0.8}>
+            {thumbnail ? (
+              <Image source={{ uri: thumbnail.uri }} style={styles.previewImg} />
+            ) : existingThumbnailUrl ? (
+              <Image source={{ uri: existingThumbnailUrl }} style={styles.previewImg} />
+            ) : (
+              <Text style={styles.imgPickerTxt}>Tap to upload a new image</Text>
+            )}
+          </TouchableOpacity>
 
-        <TouchableOpacity style={styles.submitBtn} onPress={handleUpdate} disabled={isSubmitting}>
-          {isSubmitting ? <ActivityIndicator color={COLORS.white} /> : <Text style={styles.submitBtnTxt}>Update Event</Text>}
-        </TouchableOpacity>
-      </ScrollView>
+          <TouchableOpacity style={styles.submitBtn} onPress={handleUpdate} disabled={isSubmitting}>
+            {isSubmitting ? <ActivityIndicator color={COLORS.white} /> : <Text style={styles.submitBtnTxt}>Update Event</Text>}
+          </TouchableOpacity>
+        </ScrollView>
+      )}
 
       {/* Success Modal */}
       <Modal visible={showSuccessModal} transparent animationType="fade" statusBarTranslucent>

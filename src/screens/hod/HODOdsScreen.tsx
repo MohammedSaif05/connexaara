@@ -26,6 +26,7 @@ import {
   ApiError,
 } from '../../services/api';
 import NotFoundIcon from '../../assets/svg/not-found.svg';
+import Skeleton from '../../components/Skeleton';
 
 const COLORS = {
   background: '#F5F7FA',
@@ -235,7 +236,30 @@ const HODOdsScreen = () => {
       </View>
 
       {isLoading ? (
-        <View style={styles.center}><ActivityIndicator size="large" color={COLORS.primary} /><Text style={styles.loadingText}>Loading requests...</Text></View>
+        <ScrollView style={styles.list} showsVerticalScrollIndicator={false}>
+          {[1, 2, 3].map((_, index) => (
+            <View key={index} style={styles.card}>
+              <View style={styles.cardHeader}>
+                <View style={{ flexDirection: 'row', gap: 6 }}>
+                  <Skeleton width={80} height={22} borderRadius={8} />
+                  <Skeleton width={60} height={22} borderRadius={8} />
+                  <Skeleton width={50} height={22} borderRadius={8} />
+                </View>
+              </View>
+              <View style={styles.studentRow}>
+                <Skeleton width={40} height={40} borderRadius={14} style={{ marginRight: 12 }} />
+                <View style={{ flex: 1 }}>
+                  <Skeleton width="50%" height={16} style={{ marginBottom: 6 }} />
+                  <Skeleton width="40%" height={12} />
+                </View>
+              </View>
+              <Skeleton width="80%" height={18} style={{ marginBottom: 8 }} />
+              <Skeleton width="100%" height={14} style={{ marginBottom: 4 }} />
+              <Skeleton width="90%" height={14} style={{ marginBottom: 12 }} />
+              <Skeleton width="60%" height={14} />
+            </View>
+          ))}
+        </ScrollView>
       ) : (
         <FlatList data={currentData} keyExtractor={item => item.id} renderItem={renderOdCard}
           contentContainerStyle={[styles.list, currentData.length === 0 && { flex: 1 }]}

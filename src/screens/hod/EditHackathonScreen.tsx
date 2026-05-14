@@ -5,6 +5,7 @@ import { launchImageLibrary } from 'react-native-image-picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import BackIcon from '../../assets/svg/back.svg';
 import { updateHackathon, Hackathon } from '../../services/api';
+import Skeleton from '../../components/Skeleton';
 
 const COLORS = {
   background: '#F5F7FA',
@@ -34,6 +35,13 @@ const EditHackathonScreen = ({ route, navigation }: any) => {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(true);
+
+  React.useEffect(() => {
+    // Artificial delay to show skeleton transition and match app feel
+    const timer = setTimeout(() => setIsInitializing(false), 300);
+    return () => clearTimeout(timer);
+  }, []);
 
   const handlePickImage = async () => {
     try {
@@ -78,51 +86,77 @@ const EditHackathonScreen = ({ route, navigation }: any) => {
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={styles.formScroll}>
-        <Text style={styles.inputLabel}>Event Name</Text>
-        <TextInput style={styles.input} value={name} onChangeText={setName} />
-
-        <Text style={styles.inputLabel}>Description</Text>
-        <TextInput style={[styles.input, { height: 80 }]} value={description} onChangeText={setDescription} multiline textAlignVertical="top" />
-
-        {/* Note: isGroup, minSize, and maxSize cannot be edited */}
-
-        <View style={styles.row}>
-          <View style={{ flex: 1, marginRight: 10 }}>
-            <Text style={styles.inputLabel}>Registration Deadline</Text>
-            <TouchableOpacity style={styles.input} onPress={() => setShowRegPicker(true)}>
-              <Text>{regDate.toLocaleDateString()}</Text>
-            </TouchableOpacity>
-            {showRegPicker && (
-              <DateTimePicker value={regDate} mode="date" display="default" onChange={(e, d) => { setShowRegPicker(false); if (d) setRegDate(d); }} />
-            )}
+      {isInitializing ? (
+        <ScrollView contentContainerStyle={styles.formScroll}>
+          <Skeleton width={80} height={16} style={{ marginTop: 16, marginBottom: 8 }} />
+          <Skeleton width="100%" height={50} borderRadius={12} />
+          
+          <Skeleton width={80} height={16} style={{ marginTop: 16, marginBottom: 8 }} />
+          <Skeleton width="100%" height={80} borderRadius={12} />
+          
+          <View style={styles.row}>
+            <View style={{ flex: 1, marginRight: 10 }}>
+              <Skeleton width={120} height={16} style={{ marginTop: 16, marginBottom: 8 }} />
+              <Skeleton width="100%" height={50} borderRadius={12} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Skeleton width={80} height={16} style={{ marginTop: 16, marginBottom: 8 }} />
+              <Skeleton width="100%" height={50} borderRadius={12} />
+            </View>
           </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.inputLabel}>Event Date</Text>
-            <TouchableOpacity style={styles.input} onPress={() => setShowHackPicker(true)}>
-              <Text>{hackDate.toLocaleDateString()}</Text>
-            </TouchableOpacity>
-            {showHackPicker && (
-              <DateTimePicker value={hackDate} mode="date" display="default" onChange={(e, d) => { setShowHackPicker(false); if (d) setHackDate(d); }} />
-            )}
+          
+          <Skeleton width={180} height={16} style={{ marginTop: 16, marginBottom: 8 }} />
+          <Skeleton width="100%" height={160} borderRadius={12} />
+          
+          <Skeleton width="100%" height={56} borderRadius={16} style={{ marginTop: 32 }} />
+        </ScrollView>
+      ) : (
+        <ScrollView contentContainerStyle={styles.formScroll}>
+          <Text style={styles.inputLabel}>Event Name</Text>
+          <TextInput style={styles.input} value={name} onChangeText={setName} />
+
+          <Text style={styles.inputLabel}>Description</Text>
+          <TextInput style={[styles.input, { height: 80 }]} value={description} onChangeText={setDescription} multiline textAlignVertical="top" />
+
+          {/* Note: isGroup, minSize, and maxSize cannot be edited */}
+
+          <View style={styles.row}>
+            <View style={{ flex: 1, marginRight: 10 }}>
+              <Text style={styles.inputLabel}>Registration Deadline</Text>
+              <TouchableOpacity style={styles.input} onPress={() => setShowRegPicker(true)}>
+                <Text>{regDate.toLocaleDateString()}</Text>
+              </TouchableOpacity>
+              {showRegPicker && (
+                <DateTimePicker value={regDate} mode="date" display="default" onChange={(e, d) => { setShowRegPicker(false); if (d) setRegDate(d); }} />
+              )}
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.inputLabel}>Event Date</Text>
+              <TouchableOpacity style={styles.input} onPress={() => setShowHackPicker(true)}>
+                <Text>{hackDate.toLocaleDateString()}</Text>
+              </TouchableOpacity>
+              {showHackPicker && (
+                <DateTimePicker value={hackDate} mode="date" display="default" onChange={(e, d) => { setShowHackPicker(false); if (d) setHackDate(d); }} />
+              )}
+            </View>
           </View>
-        </View>
 
-        <Text style={styles.inputLabel}>Thumbnail Image (Optional)</Text>
-        <TouchableOpacity style={styles.imgPickerBtn} onPress={handlePickImage} activeOpacity={0.8}>
-          {thumbnail ? (
-            <Image source={{ uri: thumbnail.uri }} style={styles.previewImg} />
-          ) : existingThumbnailUrl ? (
-            <Image source={{ uri: existingThumbnailUrl }} style={styles.previewImg} />
-          ) : (
-            <Text style={styles.imgPickerTxt}>Tap to upload a new image</Text>
-          )}
-        </TouchableOpacity>
+          <Text style={styles.inputLabel}>Thumbnail Image (Optional)</Text>
+          <TouchableOpacity style={styles.imgPickerBtn} onPress={handlePickImage} activeOpacity={0.8}>
+            {thumbnail ? (
+              <Image source={{ uri: thumbnail.uri }} style={styles.previewImg} />
+            ) : existingThumbnailUrl ? (
+              <Image source={{ uri: existingThumbnailUrl }} style={styles.previewImg} />
+            ) : (
+              <Text style={styles.imgPickerTxt}>Tap to upload a new image</Text>
+            )}
+          </TouchableOpacity>
 
-        <TouchableOpacity style={styles.submitBtn} onPress={handleUpdate} disabled={isSubmitting}>
-          {isSubmitting ? <ActivityIndicator color={COLORS.white} /> : <Text style={styles.submitBtnTxt}>Update Hackathon</Text>}
-        </TouchableOpacity>
-      </ScrollView>
+          <TouchableOpacity style={styles.submitBtn} onPress={handleUpdate} disabled={isSubmitting}>
+            {isSubmitting ? <ActivityIndicator color={COLORS.white} /> : <Text style={styles.submitBtnTxt}>Update Hackathon</Text>}
+          </TouchableOpacity>
+        </ScrollView>
+      )}
 
       {/* Success Modal */}
       <Modal visible={showSuccessModal} transparent animationType="fade" statusBarTranslucent>

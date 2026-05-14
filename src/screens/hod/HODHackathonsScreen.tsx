@@ -6,6 +6,7 @@ import { launchImageLibrary } from 'react-native-image-picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import BackIcon from '../../assets/svg/back.svg';
 import { Hackathon, HackathonTeam, getHackathons, getHackathonTeams, createHackathon } from '../../services/api';
+import Skeleton from '../../components/Skeleton';
 
 const COLORS = {
   background: '#F5F7FA',
@@ -162,7 +163,31 @@ const HODHackathonsScreen = ({ navigation }: any) => {
       <View style={styles.content}>
         {activeTab === 'LIST' ? (
           loading ? (
-            <ActivityIndicator size="large" color={COLORS.orange} style={{ marginTop: 40 }} />
+            <ScrollView contentContainerStyle={styles.scrollList} showsVerticalScrollIndicator={false}>
+              {[1, 2].map((_, index) => (
+                <View key={index} style={styles.card}>
+                  <Skeleton width="100%" height={140} borderRadius={0} />
+                  <View style={styles.cardBody}>
+                    <View style={styles.cardHeaderRow}>
+                      <Skeleton width="60%" height={22} />
+                      <Skeleton width={50} height={24} borderRadius={8} />
+                    </View>
+                    <Skeleton width="90%" height={14} style={{ marginBottom: 6 }} />
+                    <Skeleton width="70%" height={14} style={{ marginBottom: 16 }} />
+                    <View style={styles.statsRow}>
+                      <View style={styles.statItem}>
+                        <Skeleton width={80} height={12} style={{ marginBottom: 4 }} />
+                        <Skeleton width={40} height={18} />
+                      </View>
+                      <View style={styles.statItem}>
+                        <Skeleton width={80} height={12} style={{ marginBottom: 4 }} />
+                        <Skeleton width={60} height={18} />
+                      </View>
+                    </View>
+                  </View>
+                </View>
+              ))}
+            </ScrollView>
           ) : (
             <ScrollView 
               contentContainerStyle={styles.scrollList}

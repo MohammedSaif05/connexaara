@@ -5,6 +5,7 @@ import { launchImageLibrary } from 'react-native-image-picker';
 import { getProfile, updateProfile, changePassword, UserProfile } from '../../services/api';
 import { clearAuthData } from '../../services/storage';
 import EditIcon from '../../assets/svg/edit.svg';
+import Skeleton from '../../components/Skeleton';
 
 const COLORS = {
   background: '#F5F7FA',
@@ -172,8 +173,47 @@ const SharedProfileScreen: React.FC<SharedProfileScreenProps> = ({ navigation, r
 
   if (loading) {
     return (
-      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator size="large" color={colorTheme.main} />
+      <View style={styles.container}>
+        <ScrollView contentContainerStyle={{ paddingBottom: 60 }} showsVerticalScrollIndicator={false}>
+          <View style={[styles.headerBg, { backgroundColor: colorTheme.main, paddingTop: insets.top + 20 }]} />
+          
+          <View style={styles.profileCard}>
+            <View style={styles.avatarWrapper}>
+              <Skeleton width={100} height={100} borderRadius={50} style={{ borderWidth: 4, borderColor: COLORS.white }} />
+            </View>
+            <Skeleton width={80} height={24} borderRadius={12} style={{ marginBottom: 12 }} />
+            <Skeleton width="60%" height={28} style={{ marginBottom: 8 }} />
+            <Skeleton width="40%" height={16} />
+          </View>
+
+          <View style={styles.section}>
+            <View style={styles.sectionHeaderRow}>
+              <Skeleton width="50%" height={24} />
+            </View>
+            <View style={styles.fieldContainer}>
+              <Skeleton width="30%" height={14} style={{ marginBottom: 6 }} />
+              <Skeleton width="100%" height={20} />
+            </View>
+            <View style={styles.fieldContainer}>
+              <Skeleton width="30%" height={14} style={{ marginBottom: 6 }} />
+              <Skeleton width="100%" height={20} />
+            </View>
+            <View style={styles.fieldContainer}>
+              <Skeleton width="30%" height={14} style={{ marginBottom: 6 }} />
+              <Skeleton width="100%" height={60} />
+            </View>
+          </View>
+
+          <View style={styles.section}>
+            <Skeleton width="50%" height={24} style={{ marginBottom: 16 }} />
+            <View style={{ paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: COLORS.border }}>
+              <Skeleton width="40%" height={20} />
+            </View>
+            <View style={{ paddingVertical: 16 }}>
+              <Skeleton width="40%" height={20} />
+            </View>
+          </View>
+        </ScrollView>
       </View>
     );
   }

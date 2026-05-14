@@ -24,6 +24,7 @@ import SearchIcon from '../../assets/svg/search.svg';
 import ViewIcon from '../../assets/svg/view.svg';
 import NotFoundIcon from '../../assets/svg/not-found.svg';
 import EditIcon from '../../assets/svg/edit.svg';
+import Skeleton from '../../components/Skeleton';
 
 const COLORS = {
   background: '#F0F2F8',
@@ -431,10 +432,22 @@ const HODStaffScreen = () => {
 
       {/* Initial Loading State */}
       {isListLoading && staffList.length === 0 ? (
-        <View style={styles.centerLoader}>
-          <ActivityIndicator color={COLORS.primary} size="large" />
-          <Text style={styles.loadingText}>Fetching staff...</Text>
-        </View>
+        <ScrollView style={styles.listContent} showsVerticalScrollIndicator={false}>
+          {[1, 2, 3, 4, 5].map((_, index) => (
+            <View key={index} style={[styles.card, index === 0 && { marginTop: 4 }]}>
+              <Skeleton width={48} height={48} borderRadius={24} />
+              <View style={styles.cardBody}>
+                <Skeleton width="60%" height={18} style={{ marginBottom: 6 }} />
+                <Skeleton width="80%" height={14} style={{ marginBottom: 12 }} />
+                <View style={styles.badgeRow}>
+                  <Skeleton width={60} height={24} borderRadius={12} />
+                  <Skeleton width={50} height={24} borderRadius={12} style={{ marginLeft: 6 }} />
+                </View>
+              </View>
+              <Skeleton width={20} height={20} borderRadius={10} />
+            </View>
+          ))}
+        </ScrollView>
       ) : (
         <FlatList
           data={staffList}

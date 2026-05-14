@@ -6,6 +6,7 @@ import NotificationIcon from '../../assets/svg/notification.svg';
 import { getAuthData } from '../../services/storage';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import Skeleton from '../../components/Skeleton';
 
 const COLORS = {
   background: '#F5F7FA',
@@ -53,12 +54,20 @@ const HODHomeScreen = () => {
           <View style={styles.headerContainer}>
             <View style={styles.userInfoContainer}>
               <View style={styles.nameRow}>
-                <Text style={styles.greetingText} numberOfLines={1}>{userName || 'Loading...'}</Text>
+                {userName ? (
+                  <Text style={styles.greetingText} numberOfLines={1}>{userName}</Text>
+                ) : (
+                  <Skeleton width={120} height={24} style={{ marginRight: 10 }} />
+                )}
                 <View style={styles.tagContainer}>
                   <Text style={styles.tagText}>HOD</Text>
                 </View>
               </View>
-              <Text style={styles.deptText}>{deptName || '—'}</Text>
+              {deptName ? (
+                <Text style={styles.deptText}>{deptName}</Text>
+              ) : (
+                <Skeleton width={180} height={16} />
+              )}
             </View>
 
             <TouchableOpacity style={styles.notificationBtn} activeOpacity={0.7}>
