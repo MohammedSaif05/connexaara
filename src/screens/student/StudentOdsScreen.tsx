@@ -30,6 +30,7 @@ import {
 } from '../../services/api';
 import NotFoundIcon from '../../assets/svg/not-found.svg';
 import SearchIcon from '../../assets/svg/search.svg';
+import Skeleton from '../../components/Skeleton';
 
 const COLORS = {
   background: '#F5F7FA',
@@ -301,10 +302,29 @@ const StudentOdsScreen = () => {
       </View>
 
       {isLoading ? (
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color={COLORS.primary} />
-          <Text style={styles.loadingText}>Loading OD requests...</Text>
-        </View>
+        <ScrollView style={styles.list} showsVerticalScrollIndicator={false}>
+          {[1, 2, 3].map((_, index) => (
+            <View key={index} style={styles.card}>
+              <View style={styles.cardHeader}>
+                <View style={{ flexDirection: 'row', gap: 6 }}>
+                  <Skeleton width={100} height={22} borderRadius={8} />
+                  <Skeleton width={60} height={22} borderRadius={8} />
+                </View>
+                <Skeleton width={80} height={14} />
+              </View>
+              <Skeleton width="80%" height={18} style={{ marginBottom: 8 }} />
+              <Skeleton width="100%" height={14} style={{ marginBottom: 4 }} />
+              <Skeleton width="90%" height={14} style={{ marginBottom: 12 }} />
+              <View style={styles.dateRow}>
+                <Skeleton width={160} height={14} />
+              </View>
+              <Skeleton width={120} height={14} style={{ marginTop: 6 }} />
+              <View style={[styles.tapHint, { marginTop: 16 }]}>
+                <Skeleton width={140} height={14} />
+              </View>
+            </View>
+          ))}
+        </ScrollView>
       ) : (
         <FlatList
           data={currentData}

@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, StatusBar, TouchableOpacity, ScrollView, Modal,
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from '@react-native-community/blur';
 import NotificationIcon from '../../assets/svg/notification.svg';
+import Skeleton from '../../components/Skeleton';
 import { getAuthData } from '../../services/storage';
 import { getTimetable, getSubjects, getSubjectById, TimetableSlot, SubjectListItem, SubjectDetail } from '../../services/api';
 
@@ -194,8 +195,17 @@ const StudentHomeScreen = () => {
           
           {/* Current Period Card Widget */}
           {isLoading ? (
-            <View style={[styles.currentPeriodCard, { justifyContent: 'center', alignItems: 'center', height: 120 }]}>
-              <Text style={{ color: COLORS.textSecondary }}>Loading...</Text>
+            <View style={[styles.currentPeriodCard, { height: 140 }]}>
+              <View style={styles.periodHeader}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Skeleton width={80} height={20} borderRadius={10} />
+                </View>
+                <Skeleton width={100} height={16} />
+              </View>
+              <View style={styles.periodBody}>
+                <Skeleton width="60%" height={24} style={{ marginBottom: 8 }} />
+                <Skeleton width="40%" height={16} />
+              </View>
             </View>
           ) : !currentSlot || currentSlot === 'FREE' ? (
             <View style={styles.currentPeriodCard}>
@@ -269,7 +279,17 @@ const StudentHomeScreen = () => {
           <View style={{ marginTop: 8 }}>
             <Text style={styles.sectionTitle}>My Subjects</Text>
             {isLoading ? (
-              <ActivityIndicator style={{ marginVertical: 20 }} color={COLORS.blue} />
+              <View>
+                {[1, 2, 3].map((_, idx) => (
+                  <View key={idx} style={styles.subjectCard}>
+                    <Skeleton width={48} height={48} borderRadius={16} style={{ marginRight: 16 }} />
+                    <View style={styles.subjectCardBody}>
+                      <Skeleton width="70%" height={16} style={{ marginBottom: 6 }} />
+                      <Skeleton width="40%" height={14} />
+                    </View>
+                  </View>
+                ))}
+              </View>
             ) : subjects.length > 0 ? (
               subjects.map(sub => (
                 <TouchableOpacity 

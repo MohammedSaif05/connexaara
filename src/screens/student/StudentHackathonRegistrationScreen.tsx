@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import BackIcon from '../../assets/svg/back.svg';
 import DropdownIcon from '../../assets/svg/dropdown.svg';
 import { getDepartmentBatches, getBatchStudents, registerHackathonTeam } from '../../services/api';
+import Skeleton from '../../components/Skeleton';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
@@ -190,7 +191,19 @@ const StudentHackathonRegistrationScreen = ({ route }: any) => {
             <Text style={styles.helpText}>Select {hackathon.minSize - 1} to {hackathon.maxSize - 1} additional members from your department. You are automatically included as the leader.</Text>
 
             {loadingBatches ? (
-              <ActivityIndicator size="large" color={colorTheme.main} style={{ marginTop: 20 }} />
+              <View>
+                {[1, 2, 3].map((_, idx) => (
+                  <View key={idx} style={styles.batchContainer}>
+                    <View style={styles.batchHeader}>
+                      <View>
+                        <Skeleton width={120} height={18} style={{ marginBottom: 4 }} />
+                        <Skeleton width={80} height={14} />
+                      </View>
+                      <Skeleton width={20} height={20} borderRadius={10} />
+                    </View>
+                  </View>
+                ))}
+              </View>
             ) : batches.length === 0 ? (
               <Text style={styles.emptyTxt}>No batches found in your department.</Text>
             ) : (
@@ -218,7 +231,17 @@ const StudentHackathonRegistrationScreen = ({ route }: any) => {
                     {isExpanded && (
                       <View style={styles.studentsList}>
                         {pagination.loading && students.length === 0 ? (
-                           <ActivityIndicator size="small" color={colorTheme.main} style={{ padding: 16 }} />
+                          <View>
+                            {[1, 2, 3].map((_, idx) => (
+                              <View key={idx} style={styles.studentRow}>
+                                <View>
+                                  <Skeleton width={140} height={16} style={{ marginBottom: 4 }} />
+                                  <Skeleton width={100} height={14} />
+                                </View>
+                                <Skeleton width={24} height={24} borderRadius={6} />
+                              </View>
+                            ))}
+                          </View>
                         ) : students.length === 0 ? (
                           <Text style={styles.emptyTxt}>No active students in this batch.</Text>
                         ) : (
