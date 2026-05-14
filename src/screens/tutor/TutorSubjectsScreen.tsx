@@ -36,6 +36,7 @@ import SearchIcon from '../../assets/svg/search.svg';
 import ViewIcon from '../../assets/svg/view.svg';
 import NotFoundIcon from '../../assets/svg/not-found.svg';
 import EditIcon from '../../assets/svg/edit.svg';
+import Skeleton from '../../components/Skeleton';
 
 const COLORS = {
   background: '#F0F2F8',
@@ -437,10 +438,18 @@ const TutorSubjectsScreen = () => {
 
       {/* List */}
       {isListLoading && subjectList.length === 0 ? (
-        <View style={styles.loaderWrap}>
-          <ActivityIndicator color={COLORS.primary} size="large" />
-          <Text style={styles.loadingText}>Loading subjects…</Text>
-        </View>
+        <ScrollView contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false}>
+          {[1, 2, 3, 4, 5].map((_, index) => (
+            <View key={index} style={[styles.card, index === 0 && { marginTop: 4 }]}>
+              <Skeleton width={44} height={44} borderRadius={22} style={{ marginRight: 12 }} />
+              <View style={styles.cardBody}>
+                <Skeleton width="60%" height={16} style={{ marginBottom: 6 }} />
+                <Skeleton width="40%" height={14} />
+              </View>
+              <Skeleton width={32} height={32} borderRadius={16} />
+            </View>
+          ))}
+        </ScrollView>
       ) : (
         <FlatList
           data={filteredList}

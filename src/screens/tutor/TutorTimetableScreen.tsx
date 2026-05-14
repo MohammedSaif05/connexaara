@@ -31,6 +31,7 @@ import ClockIcon from '../../assets/svg/clock.svg';
 import SubjectIcon from '../../assets/svg/tutor-subjects.svg';
 import TeacherIcon from '../../assets/svg/tutor-profile.svg';
 import NotFoundIcon from '../../assets/svg/not-found.svg';
+import Skeleton from '../../components/Skeleton';
 
 const COLORS = {
   background: '#F5F7FA',
@@ -405,9 +406,23 @@ const TutorTimetableScreen = () => {
         refreshControl={!isEditing ? <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor={COLORS.primary} colors={[COLORS.primary]} /> : undefined}
       >
         {isLoading ? (
-          <View style={styles.centerWrap}>
-            <ActivityIndicator size="large" color={COLORS.primary} />
-            <Text style={styles.loadingText}>Loading timetable...</Text>
+          <View style={styles.slotsContainer}>
+            {[1, 2, 3].map((_, index) => (
+              <View key={index} style={styles.slotCard}>
+                <View style={styles.slotTimeCol}>
+                  <Skeleton width={36} height={14} style={{ marginBottom: 4 }} />
+                  <View style={styles.slotTimeLine} />
+                  <Skeleton width={36} height={14} style={{ marginTop: 4 }} />
+                </View>
+                <View style={styles.slotContent}>
+                  <Skeleton width="70%" height={16} style={{ marginBottom: 8 }} />
+                  <View style={styles.slotDetailsRow}>
+                    <Skeleton width={60} height={20} borderRadius={6} />
+                    <Skeleton width={80} height={20} borderRadius={6} />
+                  </View>
+                </View>
+              </View>
+            ))}
           </View>
         ) : displaySlots.length === 0 ? (
           <View style={styles.centerWrap}>

@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import BackIcon from '../../assets/svg/back.svg';
 import { Event, getEvents } from '../../services/api';
+import Skeleton from '../../components/Skeleton';
 
 const COLORS = {
   background: '#F5F7FA',
@@ -73,7 +74,31 @@ const TutorEventsScreen = ({ navigation }: any) => {
       {/* Content */}
       <View style={styles.content}>
         {loading ? (
-          <ActivityIndicator size="large" color={COLORS.purple} style={{ marginTop: 40 }} />
+          <ScrollView contentContainerStyle={styles.scrollList} showsVerticalScrollIndicator={false}>
+            {[1, 2, 3].map((_, index) => (
+              <View key={index} style={styles.card}>
+                <Skeleton width="100%" height={140} />
+                <View style={styles.cardBody}>
+                  <View style={styles.cardHeaderRow}>
+                    <Skeleton width="60%" height={20} />
+                    <Skeleton width={80} height={24} borderRadius={8} />
+                  </View>
+                  <Skeleton width="100%" height={16} style={{ marginBottom: 6 }} />
+                  <Skeleton width="80%" height={16} style={{ marginBottom: 16 }} />
+                  <View style={styles.statsRow}>
+                    <View style={styles.statItem}>
+                      <Skeleton width={80} height={12} style={{ marginBottom: 4 }} />
+                      <Skeleton width={80} height={16} />
+                    </View>
+                    <View style={styles.statItem}>
+                      <Skeleton width={80} height={12} style={{ marginBottom: 4 }} />
+                      <Skeleton width={80} height={16} />
+                    </View>
+                  </View>
+                </View>
+              </View>
+            ))}
+          </ScrollView>
         ) : (
           <ScrollView 
             contentContainerStyle={styles.scrollList}

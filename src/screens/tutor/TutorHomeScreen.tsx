@@ -12,6 +12,7 @@ import SubjectsIcon from '../../assets/svg/tutor-subjects.svg';
 import ClockIcon from '../../assets/svg/clock.svg';
 import { getAuthData } from '../../services/storage';
 import { getStudents, getSubjects, getTimetable, TimetableSlot } from '../../services/api';
+import Skeleton from '../../components/Skeleton';
 
 const COLORS = {
   background: '#F5F7FA',
@@ -137,8 +138,16 @@ const TutorHomeScreen = () => {
   const renderCurrentSlotCard = () => {
     if (isLoading && !isRefreshing) {
       return (
-        <View style={[styles.currentSlotCard, { justifyContent: 'center', height: 120 }]}>
-          <ActivityIndicator size="small" color={COLORS.purple} />
+        <View style={styles.currentSlotCard}>
+          <View style={styles.currentHeaderRow}>
+            <Skeleton width={80} height={20} borderRadius={10} />
+            <Skeleton width={100} height={16} />
+          </View>
+          <Skeleton width="70%" height={24} style={{ marginBottom: 16 }} />
+          <View style={styles.slotDetailsRow}>
+            <Skeleton width={80} height={24} borderRadius={8} />
+            <Skeleton width={120} height={24} borderRadius={8} />
+          </View>
         </View>
       );
     }
@@ -237,12 +246,20 @@ const TutorHomeScreen = () => {
           <View style={styles.headerContainer}>
             <View style={styles.userInfoContainer}>
               <View style={styles.nameRow}>
-                <Text style={styles.greetingText} numberOfLines={1}>{userName || 'Loading...'}</Text>
+                {userName ? (
+                  <Text style={styles.greetingText} numberOfLines={1}>{userName}</Text>
+                ) : (
+                  <Skeleton width={120} height={24} style={{ marginRight: 10 }} />
+                )}
                 <View style={styles.tagContainer}>
                   <Text style={styles.tagText}>TUTOR</Text>
                 </View>
               </View>
-              <Text style={styles.deptText}>{deptName || '—'}</Text>
+              {deptName ? (
+                <Text style={styles.deptText}>{deptName}</Text>
+              ) : (
+                <Skeleton width={180} height={16} />
+              )}
             </View>
 
             <TouchableOpacity style={styles.notificationBtn} activeOpacity={0.7}>
@@ -272,7 +289,11 @@ const TutorHomeScreen = () => {
             <View style={[styles.metricIconWrap, { backgroundColor: COLORS.purpleLight }]}>
               <StudentsIcon width={24} height={24} fill={COLORS.purple} />
             </View>
-            <Text style={styles.metricValue}>{isLoading && !isRefreshing ? '-' : totalStudents}</Text>
+            {isLoading && !isRefreshing ? (
+              <Skeleton width={40} height={28} style={{ marginBottom: 4 }} />
+            ) : (
+              <Text style={styles.metricValue}>{totalStudents}</Text>
+            )}
             <Text style={styles.metricLabel}>Total Students</Text>
           </TouchableOpacity>
 
@@ -284,7 +305,11 @@ const TutorHomeScreen = () => {
             <View style={[styles.metricIconWrap, { backgroundColor: COLORS.tealLight }]}>
               <SubjectsIcon width={24} height={24} fill={COLORS.teal} />
             </View>
-            <Text style={styles.metricValue}>{isLoading && !isRefreshing ? '-' : totalSubjects}</Text>
+            {isLoading && !isRefreshing ? (
+              <Skeleton width={40} height={28} style={{ marginBottom: 4 }} />
+            ) : (
+              <Text style={styles.metricValue}>{totalSubjects}</Text>
+            )}
             <Text style={styles.metricLabel}>Subjects for Sem {currentSemester || '-'}</Text>
           </TouchableOpacity>
         </View>
